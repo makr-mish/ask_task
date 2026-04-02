@@ -61,9 +61,20 @@ function TaskProgressCard({ percent, currentLabel }: TaskProgressCardProps) {
           </p>
         </div>
 
-        <div className="rounded-[18px] bg-black px-4 py-3 text-[16px] font-semibold leading-none text-white shadow-sm sm:min-w-[72px] sm:text-[18px]">
-          {safePercent}%
-        </div>
+<div className="flex items-center justify-between gap-4">
+  <div className="min-w-0">
+    <h3 className="text-[26px] font-semibold leading-none text-black sm:text-[28px]">
+      Прогресс задания
+    </h3>
+    <p className="mt-3 text-[15px] leading-6 text-[#6b7280] sm:text-[16px]">
+      Текущий этап: {currentLabel}
+    </p>
+  </div>
+
+  <div className="flex h-10 min-w-[64px] items-center justify-center rounded-[14px] border border-black/5 bg-black px-3 text-[15px] font-semibold tabular-nums leading-none text-white shadow-[0_6px_18px_rgba(15,23,42,0.14)] sm:h-11 sm:min-w-[68px] sm:text-[16px]">
+    {safePercent}%
+  </div>
+</div>
       </div>
 
       <div className="mt-5">
