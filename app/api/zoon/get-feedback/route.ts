@@ -152,6 +152,6 @@ export async function POST(req: NextRequest) {
           error instanceof Error ? error.message : "Внутренняя ошибка сервера",
       },
       { status: 500 }
-    );
+    ); 
   }
 }
