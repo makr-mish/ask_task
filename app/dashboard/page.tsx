@@ -526,7 +526,7 @@ export default function DashboardPage() {
                               ) : platform.taskHref ? (
                                 <Link
                                   href={platform.taskHref}
-                                  className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-gradient-to-b from-slate-800 to-black px-5 text-[15px] font-semibold text-white shadow-[0_12px_24px_rgba(15,23,42,0.22)] transition hover:-translate-y-[1px] hover:from-slate-700 hover:to-slate-900 hover:shadow-[0_0_20px_rgba(15,23,42,0.25)] active:scale-[0.98] sm:w-auto sm:text-base"
+                                 className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-slate-950 px-5 text-[15px] font-semibold text-white transition hover:bg-slate-800 active:scale-[0.98] sm:w-auto sm:text-base"
                                 >
                                   Взять задание
                                 </Link>
@@ -610,7 +610,7 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => setBalanceInfoOpen(true)}
-                className="inline-flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-[14px] font-semibold text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition hover:-translate-y-[1px] hover:bg-slate-50 sm:h-11 sm:px-5 sm:text-base"
+               className="inline-flex h-10 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-[14px] font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-[0.98]"
               >
                 Подробнее
               </button>
@@ -662,7 +662,7 @@ export default function DashboardPage() {
 
             <button
               onClick={() => (window.location.href = "/balance")}
-              className="mt-5 inline-flex h-12 w-full items-center justify-center rounded-2xl bg-gradient-to-b from-slate-800 to-black px-6 text-[16px] font-semibold text-white shadow-[0_14px_28px_rgba(15,23,42,0.22)] transition hover:-translate-y-[1px] hover:from-slate-700 hover:to-slate-900 hover:shadow-[0_0_20px_rgba(15,23,42,0.25)] active:scale-[0.98] sm:mt-6 sm:h-14 sm:text-lg"
+            className="mt-5 inline-flex h-12 w-full items-center justify-center rounded-2xl bg-slate-950 px-6 text-[16px] font-semibold text-white transition hover:bg-slate-800 active:scale-[0.98] sm:mt-6 sm:h-14 sm:text-lg"
             >
               Вывести деньги
             </button>
@@ -684,7 +684,7 @@ export default function DashboardPage() {
               <button
                 onClick={handleCheckStatus}
                 disabled={statusLoading}
-                className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-gradient-to-b from-slate-800 to-black px-6 text-[16px] font-semibold text-white shadow-[0_14px_28px_rgba(15,23,42,0.22)] transition hover:-translate-y-[1px] hover:from-slate-700 hover:to-slate-900 hover:shadow-[0_0_20px_rgba(15,23,42,0.25)] active:scale-[0.98] disabled:opacity-50 sm:h-14 sm:text-lg"
+               className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-slate-950 px-6 text-[16px] font-semibold text-white transition hover:bg-slate-800 active:scale-[0.98] disabled:opacity-50 sm:h-14 sm:text-lg"
               >
                 {statusLoading ? "Проверяем..." : "Проверить статус"}
               </button>
@@ -705,35 +705,43 @@ export default function DashboardPage() {
                 </button>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <a
-                  href="https://t.me/mikhail_managers"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-[20px] border border-slate-200 bg-white/80 p-4 shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition hover:-translate-y-[1px] hover:bg-white sm:rounded-[22px]"
-                >
-                  <div className="mb-3 text-[18px] font-bold text-slate-900 sm:text-lg">
-                    Поддержка
-                  </div>
-                  <div className="inline-flex h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-b from-slate-800 to-black px-5 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(15,23,42,0.18)] sm:w-auto">
-                    Перейти
-                  </div>
-                </a>
+<div className="grid gap-3 sm:grid-cols-3">
+  {/* Поддержка */}
+  <a
+    href="https://t.me/mikhail_managers"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="flex h-full flex-col justify-center rounded-[20px] border border-slate-200 bg-white/80 p-5 text-center transition hover:-translate-y-[2px] hover:bg-white hover:shadow-[0_12px_24px_rgba(15,23,42,0.08)] sm:rounded-[22px]"
+  >
+    <div className="text-[18px] font-bold text-slate-900 sm:text-lg">
+      Поддержка
+    </div>
+  </a>
 
-                <a
-                  href="https://t.me/+Xw-kkI6yW4sxOWJi"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-[20px] border border-slate-200 bg-white/80 p-4 shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition hover:-translate-y-[1px] hover:bg-white sm:rounded-[22px]"
-                >
-                  <div className="mb-3 text-[18px] font-bold text-slate-900 sm:text-lg">
-                    Чат исполнителей
-                  </div>
-                  <div className="inline-flex h-10 w-full items-center justify-center rounded-2xl bg-gradient-to-b from-slate-800 to-black px-5 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(15,23,42,0.18)] sm:w-auto">
-                    Перейти
-                  </div>
-                </a>
-              </div>
+  {/* Чат исполнителей */}
+  <a
+    href="https://t.me/+Xw-kkI6yW4sxOWJi"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="flex h-full flex-col justify-center rounded-[20px] border border-slate-200 bg-white/80 p-5 text-center transition hover:-translate-y-[2px] hover:bg-white hover:shadow-[0_12px_24px_rgba(15,23,42,0.08)] sm:rounded-[22px]"
+  >
+    <div className="text-[18px] font-bold text-slate-900 sm:text-lg">
+      Чат исполнителей
+    </div>
+  </a>
+
+  {/* FAQ */}
+  <a
+    href="https://telegra.ph/Instrukciya-po-botu-ask-task-bot-03-03-2"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="flex h-full flex-col justify-center rounded-[20px] border border-slate-200 bg-white/80 p-5 text-center transition hover:-translate-y-[2px] hover:bg-white hover:shadow-[0_12px_24px_rgba(15,23,42,0.08)] sm:rounded-[22px]"
+  >
+    <div className="text-[18px] font-bold text-slate-900 sm:text-lg">
+      FAQ
+    </div>
+  </a>
+</div>
             </div>
           </section>
         </div>

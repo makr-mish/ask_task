@@ -51,30 +51,19 @@ function TaskProgressCard({ percent, currentLabel }: TaskProgressCardProps) {
 
   return (
     <div className="mt-8 rounded-[28px] border border-[#e7eaee] bg-white p-5 shadow-[0_2px_10px_rgba(15,23,42,0.05)] sm:p-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h3 className="text-[28px] font-semibold leading-none text-black sm:text-[30px]">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-[26px] font-semibold leading-none text-black sm:text-[28px]">
             Прогресс задания
           </h3>
-          <p className="mt-3 text-[16px] leading-6 text-[#6b7280] sm:text-[17px]">
+          <p className="mt-3 text-[15px] leading-6 text-[#6b7280] sm:text-[16px]">
             Текущий этап: {currentLabel}
           </p>
         </div>
 
-<div className="flex items-center justify-between gap-4">
-  <div className="min-w-0">
-    <h3 className="text-[26px] font-semibold leading-none text-black sm:text-[28px]">
-      Прогресс задания
-    </h3>
-    <p className="mt-3 text-[15px] leading-6 text-[#6b7280] sm:text-[16px]">
-      Текущий этап: {currentLabel}
-    </p>
-  </div>
-
-  <div className="flex h-10 min-w-[64px] items-center justify-center rounded-[14px] border border-black/5 bg-black px-3 text-[15px] font-semibold tabular-nums leading-none text-white shadow-[0_6px_18px_rgba(15,23,42,0.14)] sm:h-11 sm:min-w-[68px] sm:text-[16px]">
-    {safePercent}%
-  </div>
-</div>
+        <div className="shrink-0 flex h-10 min-w-[64px] items-center justify-center rounded-[14px] border border-black/5 bg-black px-3 text-[15px] font-semibold tabular-nums leading-none text-white shadow-[0_6px_18px_rgba(15,23,42,0.14)] sm:h-11 sm:min-w-[68px] sm:text-[16px]">
+          {safePercent}%
+        </div>
       </div>
 
       <div className="mt-5">
@@ -86,7 +75,10 @@ function TaskProgressCard({ percent, currentLabel }: TaskProgressCardProps) {
               background:
                 "linear-gradient(90deg, #dcfce7 0%, #86efac 45%, #22c55e 100%)",
               backgroundSize: "200% 100%",
-              animation: safePercent > 0 ? "taskProgressGradientShift 2.8s linear infinite" : "none",
+              animation:
+                safePercent > 0
+                  ? "taskProgressGradientShift 2.8s linear infinite"
+                  : "none",
             }}
           >
             <div
@@ -104,7 +96,9 @@ function TaskProgressCard({ percent, currentLabel }: TaskProgressCardProps) {
           {showRunner && (
             <div
               className="pointer-events-none absolute top-1/2 z-10 -translate-y-1/2 transition-all duration-700 ease-out"
-              style={{ left: `clamp(8px, calc(${safePercent}% - 10px), calc(100% - 20px))` }}
+              style={{
+                left: `clamp(8px, calc(${safePercent}% - 10px), calc(100% - 20px))`,
+              }}
             >
               <div className="relative h-5 w-5">
                 <span
@@ -442,7 +436,7 @@ const progressMeta = useMemo(() => {
   if (stepState === 'form') {
     return {
       show: true,
-      percent: 0,
+      percent: 7,
       currentLabel: 'Ожидание получения задания',
     };
   }
@@ -450,7 +444,7 @@ const progressMeta = useMemo(() => {
   if (stepState === 'loadingTask') {
     return {
       show: true,
-      percent: 8,
+      percent: 16,
       currentLabel: stageLabels.loadingTask,
     };
   }
