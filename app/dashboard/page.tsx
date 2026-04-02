@@ -30,7 +30,7 @@ type RippleState = {
 
 export default function DashboardPage() {
   const [user, setUser] = useState<AppUser | null>(null);
-
+  const [pageVisible, setPageVisible] = useState(false);
   const visiblePlatforms = PLATFORMS.filter((p) => p.key !== "BANKS_RU");
 
   const [freeCounts, setFreeCounts] = useState<Record<string, string>>({});
@@ -208,6 +208,14 @@ export default function DashboardPage() {
     window.location.href = "/login";
   }, []);
 
+useEffect(() => {
+  const timer = setTimeout(() => {
+    setPageVisible(true);
+  }, 50);
+
+  return () => clearTimeout(timer);
+}, []);
+
   useEffect(() => {
     if (!user) return;
 
@@ -348,7 +356,13 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-transparent px-3 py-3 sm:px-5 sm:py-5">
+   <main
+  className={`min-h-screen bg-transparent px-3 py-3 transition-all duration-700 ease-out sm:px-5 sm:py-5 ${
+    pageVisible
+      ? "translate-y-0 opacity-100 blur-0"
+      : "translate-y-4 opacity-0 blur-[4px]"
+  }`}
+>
       <div className="mx-auto max-w-6xl space-y-4 sm:space-y-6">
         <div className="rounded-[28px] border border-white/70 bg-white/82 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.07)] backdrop-blur-xl sm:rounded-[30px] sm:p-8">
           <div className="flex flex-col gap-5 sm:gap-6">

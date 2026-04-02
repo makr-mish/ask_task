@@ -33,7 +33,7 @@ export default function LoginPage() {
       };
 
       localStorage.setItem("tg_user", JSON.stringify(normalizedUser));
-      window.location.href = "/dashboard";
+      window.location.href = "/loading-screen";
     };
 
     return () => {
@@ -100,7 +100,7 @@ export default function LoginPage() {
       localStorage.setItem("user_id", String(data.userId));
       localStorage.setItem("token", String(data.token));
 
-      router.push("/dashboard");
+      router.push("/loading-screen");
     } catch (error) {
       console.error(error);
       alert("Ошибка сервера");
@@ -142,7 +142,9 @@ export default function LoginPage() {
               </h2>
 
               <p className="mt-2 text-[14px] leading-6 text-slate-600">
-                Рекомендуем, если вы уже входили через бота @ask_task_bot. Ваша учетная запись будет синхронизирована, и вы получите доступ ко всем своим заданиям и балансу.
+                Рекомендуем, если вы уже входили через бота @ask_task_bot. Ваша
+                учетная запись будет синхронизирована, и вы получите доступ ко
+                всем своим заданиям и балансу.
               </p>
 
               <div className="mt-4">
