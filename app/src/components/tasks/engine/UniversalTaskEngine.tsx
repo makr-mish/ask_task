@@ -404,98 +404,103 @@ export default function UniversalTaskEngine({
 
   const rewardText = adapter?.getRewardText?.(platform) ?? `${platform.price}₽`;
 
-  const progressMeta = useMemo(() => {
-    const stageLabels: Record<string, string> = {
-      form: 'Заполнение анкеты',
-      loadingTask: 'Получение задания',
-      taskReady: 'Поиск компании',
-      phoneCheck: 'Проверка звонка',
-      phoneChecking: 'Проверка звонка',
-      siteCheck: 'Проверка сайта',
-      siteChecking: 'Проверка сайта',
-      controlQuestions: 'Контрольные вопросы',
-      moderationTimer: 'Ожидание проверки',
-      reviewReady: 'Получение текста отзыва',
-      reviewText: 'Публикация отзыва',
-      reviewSubmitting: 'Отправка на модерацию',
-      reviewSubmitted: 'Завершение задания',
-    };
+  // ... ВЕСЬ ФАЙЛ ОСТАЁТСЯ БЕЗ ИЗМЕНЕНИЙ ДО ЭТОГО МЕСТА
 
-    const configuredStages = Array.from(
-      new Set(['taskReady', ...getPlatformStepConfig(platformKey).steps]),
-    );
+const progressMeta = useMemo(() => {
+  const stageLabels: Record<string, string> = {
+    form: 'Заполнение анкеты',
+    loadingTask: 'Получение задания',
+    taskReady: 'Поиск компании',
+    phoneCheck: 'Проверка звонка',
+    phoneChecking: 'Проверка звонка',
+    siteCheck: 'Проверка сайта',
+    siteChecking: 'Проверка сайта',
+    controlQuestions: 'Контрольные вопросы',
+    moderationTimer: 'Ожидание проверки',
+    reviewReady: 'Получение текста отзыва',
+    reviewText: 'Публикация отзыва',
+    reviewSubmitting: 'Отправка на модерацию',
+    reviewSubmitted: 'Завершение задания',
+  };
 
-    if (stepState === 'form') {
-      return {
-        show: false,
-        percent: 0,
-        currentLabel: stageLabels.form,
-      };
-    }
+  const configuredStages = Array.from(
+    new Set(['taskReady', ...getPlatformStepConfig(platformKey).steps]),
+  );
 
-    if (stepState === 'loadingTask') {
-      return {
-        show: true,
-        percent: 8,
-        currentLabel: stageLabels.loadingTask,
-      };
-    }
-
-    const normalizedStep =
-      stepState === 'phoneChecking'
-        ? 'phoneCheck'
-        : stepState === 'siteChecking'
-          ? 'siteCheck'
-          : stepState === 'reviewSubmitting'
-            ? 'reviewSubmitted'
-            : stepState;
-
-    const currentIndex = configuredStages.indexOf(normalizedStep);
-    const totalStages = Math.max(configuredStages.length, 1);
-    const slotSize = 100 / totalStages;
-
-    let percent =
-      currentIndex >= 0
-        ? Math.min(100, (currentIndex + 1) * slotSize)
-        : 10;
-
-    if (normalizedStep === 'controlQuestions' && controlQuestionIds.length > 0) {
-      const answeredCount = controlQuestionIds.filter(
-        (id) => questionAnswers[id] !== null,
-      ).length;
-      const base = currentIndex * slotSize;
-      const innerProgress = (answeredCount / controlQuestionIds.length) * slotSize;
-      percent = base + innerProgress;
-    }
-
-    if (normalizedStep === 'moderationTimer') {
-      const totalTimerSeconds = getPlatformTimerSeconds(platformKey);
-      const elapsed = Math.max(0, totalTimerSeconds - timerSeconds);
-      const ratio = totalTimerSeconds > 0 ? elapsed / totalTimerSeconds : 1;
-      const base = currentIndex * slotSize;
-      percent = base + ratio * slotSize;
-    }
-
-    if (stepState === 'reviewSubmitting') {
-      percent = 98;
-    }
-
-    if (stepState === 'reviewSubmitted') {
-      percent = 100;
-    }
-
+  // ✅ ВОТ ГЛАВНОЕ ИЗМЕНЕНИЕ
+  if (stepState === 'form') {
     return {
       show: true,
-      percent,
-      currentLabel: stageLabels[stepState] ?? 'Выполнение задания',
+      percent: 0,
+      currentLabel: 'Ожидание получения задания',
     };
-  }, [
-    controlQuestionIds,
-    platformKey,
-    questionAnswers,
-    stepState,
-    timerSeconds,
-  ]);
+  }
+
+  if (stepState === 'loadingTask') {
+    return {
+      show: true,
+      percent: 8,
+      currentLabel: stageLabels.loadingTask,
+    };
+  }
+
+  const normalizedStep =
+    stepState === 'phoneChecking'
+      ? 'phoneCheck'
+      : stepState === 'siteChecking'
+        ? 'siteCheck'
+        : stepState === 'reviewSubmitting'
+          ? 'reviewSubmitted'
+          : stepState;
+
+  const currentIndex = configuredStages.indexOf(normalizedStep);
+  const totalStages = Math.max(configuredStages.length, 1);
+  const slotSize = 100 / totalStages;
+
+  let percent =
+    currentIndex >= 0
+      ? Math.min(100, (currentIndex + 1) * slotSize)
+      : 10;
+
+  if (normalizedStep === 'controlQuestions' && controlQuestionIds.length > 0) {
+    const answeredCount = controlQuestionIds.filter(
+      (id) => questionAnswers[id] !== null,
+    ).length;
+    const base = currentIndex * slotSize;
+    const innerProgress = (answeredCount / controlQuestionIds.length) * slotSize;
+    percent = base + innerProgress;
+  }
+
+  if (normalizedStep === 'moderationTimer') {
+    const totalTimerSeconds = getPlatformTimerSeconds(platformKey);
+    const elapsed = Math.max(0, totalTimerSeconds - timerSeconds);
+    const ratio = totalTimerSeconds > 0 ? elapsed / totalTimerSeconds : 1;
+    const base = currentIndex * slotSize;
+    percent = base + ratio * slotSize;
+  }
+
+  if (stepState === 'reviewSubmitting') {
+    percent = 98;
+  }
+
+  if (stepState === 'reviewSubmitted') {
+    percent = 100;
+  }
+
+  return {
+    show: true,
+    percent,
+    currentLabel: stageLabels[stepState] ?? 'Выполнение задания',
+  };
+}, [
+  controlQuestionIds,
+  platformKey,
+  questionAnswers,
+  stepState,
+  timerSeconds,
+]);
+
+// ... ДАЛЬШЕ ФАЙЛ БЕЗ ИЗМЕНЕНИЙ
 
   const validateRegion = (value: string) => {
     const clean = value.replace(/[^\d]/g, "");
