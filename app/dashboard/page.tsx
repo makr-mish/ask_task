@@ -168,13 +168,13 @@ export default function DashboardPage() {
     setActivitiesExpanded((prev) => !prev);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("tg_user");
-    localStorage.removeItem("user_id");
-    localStorage.removeItem("token");
-    window.location.href = "/login";
-  };
-
+const handleLogout = () => {
+  localStorage.removeItem("tg_user");
+  localStorage.removeItem("user_id");
+  localStorage.removeItem("token");
+  localStorage.removeItem("auth_type");
+  window.location.href = "/login";
+};
   useEffect(() => {
     const rawTgUser = localStorage.getItem("tg_user");
     const userId = localStorage.getItem("user_id");

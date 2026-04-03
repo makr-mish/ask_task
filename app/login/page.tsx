@@ -20,6 +20,15 @@ export default function LoginPage() {
   const [telegramModalOpen, setTelegramModalOpen] = useState(false);
 
   useEffect(() => {
+    const tgUser = localStorage.getItem("tg_user");
+    const userId = localStorage.getItem("user_id");
+
+    if (tgUser || userId) {
+      router.replace("/dashboard");
+    }
+  }, [router]);
+
+  useEffect(() => {
     window.onTelegramAuth = (user) => {
       const normalizedUser = {
         USER_ID_TEXT: String(user.id),
@@ -33,6 +42,10 @@ export default function LoginPage() {
       };
 
       localStorage.setItem("tg_user", JSON.stringify(normalizedUser));
+      localStorage.setItem("auth_type", "telegram");
+      localStorage.removeItem("user_id");
+      localStorage.removeItem("token");
+
       window.location.href = "/loading-screen";
     };
 
@@ -98,7 +111,9 @@ export default function LoginPage() {
       }
 
       localStorage.setItem("user_id", String(data.userId));
-      localStorage.setItem("token", String(data.token));
+      localStorage.setItem("auth_type", "password");
+      localStorage.removeItem("tg_user");
+      localStorage.removeItem("token");
 
       router.push("/loading-screen");
     } catch (error) {
