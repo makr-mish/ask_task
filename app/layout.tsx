@@ -17,3 +17,12 @@ export default function RootLayout({
     </html>
   );
 }
+
+export const metadata = {
+  title: "ASK TASK - Биржа заданий",
+  description: "Worker cabinet",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
