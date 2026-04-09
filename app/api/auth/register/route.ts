@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     }
 
     const [existing]: any = await pool.query(
-      "SELECT * FROM users WHERE login = ?",
+        "SELECT * FROM users WHERE email = ?",
       [login]
     );
 
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const [result]: any = await pool.query(
-      "INSERT INTO users (login, password) VALUES (?, ?)",
+      "INSERT INTO users (email, password) VALUES (?, ?)",
       [login, hashedPassword]
     );
 

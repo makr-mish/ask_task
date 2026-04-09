@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     }
 
     const [rows]: any = await pool.query(
-      "SELECT * FROM users WHERE login = ?",
+      "SELECT * FROM users WHERE email = ?",
       [login]
     );
 
