@@ -763,17 +763,16 @@ useEffect(() => {
         <div className="space-y-4">
           <div className="flex justify-center">
             <section className="w-full rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,28,46,0.90),rgba(9,22,40,0.88))] px-5 py-4 text-white shadow-[0_18px_45px_rgba(2,6,23,0.18)] backdrop-blur-xl sm:px-8 sm:py-5">
-          <div className="mb-3 flex items-center justify-center gap-4">
-  <h2 className="text-[30px] font-semibold tracking-[-0.04em] text-white sm:text-[34px]">
-    ASK TASK
-  </h2>
+              <div className="flex items-start justify-between gap-3 sm:items-center sm:justify-center sm:gap-4">
+                <h2 className="shrink-0 whitespace-nowrap text-[28px] font-semibold leading-none tracking-[-0.03em] text-white sm:text-[34px]">
+                  ASK TASK
+                </h2>
+                <div className="ml-auto inline-flex min-h-9 max-w-[190px] items-center justify-center rounded-full border border-white/10 bg-white/10 px-4 py-2 text-right text-[13px] font-semibold leading-tight text-white/85 shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)] backdrop-blur-md sm:ml-0 sm:min-h-10 sm:max-w-none sm:px-5 sm:text-[14px]">
+                  Единый ID для всех платформ
+                </div>
+              </div>
 
-  <span className="rounded-full border border-white/15 bg-white/8 px-5 py-2 text-sm font-semibold text-white/80 backdrop-blur-xl">
-    Единый ID для всех платформ
-  </span>
-</div>
-
-              <p className="mx-auto mt-3 max-w-4xl text-center text-[15px] leading-7 text-white/88 sm:mt-4 sm:text-[17px]">
+              <p className="mx-auto mt-4 max-w-4xl text-center text-[15px] leading-7 text-white/88 sm:mt-4 sm:text-[17px]">
                 Мы сделали <span className="font-semibold text-white">единый ID</span> для работы с любой платформы: Веб-сайт, Телеграм бот и MAX бот. Для вас это единый личный кабинет с заданиями, где все синхронизировано.
               </p>
             </section>
@@ -1016,7 +1015,7 @@ useEffect(() => {
             </div>
             </div>
           </div>
-     
+  
       )}
 
 
