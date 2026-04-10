@@ -8,21 +8,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="ru">
       <body>{children}</body>
     </html>
   );
 }
-
-export const metadata = {
-  title: "ASK TASK - Биржа заданий",
-  description: "Worker cabinet",
-  robots: {
-    index: false,
-    follow: false,
-  },
-};
