@@ -57,6 +57,8 @@ export default function DashboardPage() {
 
   const [referralModalOpen, setReferralModalOpen] = useState(false);
 
+  const [botModalOpen, setBotModalOpen] = useState<"tg" | "max" | null>(null);
+
   const [reviewsRipple, setReviewsRipple] = useState<RippleState | null>(null);
   const [activitiesRipple, setActivitiesRipple] = useState<RippleState | null>(
     null,
@@ -357,10 +359,8 @@ useEffect(() => {
 
   return (
    <main
-  className={`min-h-screen bg-transparent px-3 py-3 transition-all duration-700 ease-out sm:px-5 sm:py-5 ${
-    pageVisible
-      ? "translate-y-0 opacity-100 blur-0"
-      : "translate-y-4 opacity-0 blur-[4px]"
+  className={`min-h-screen bg-transparent px-3 py-3 transition-opacity duration-500 ease-out sm:px-5 sm:py-5 ${
+    pageVisible ? "opacity-100" : "opacity-0"
   }`}
 >
       <div className="mx-auto max-w-6xl space-y-4 sm:space-y-6">
@@ -759,6 +759,132 @@ useEffect(() => {
             </div>
           </section>
         </div>
+
+        <div className="space-y-4">
+          <div className="flex justify-center">
+            <section className="w-full rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,28,46,0.90),rgba(9,22,40,0.88))] px-5 py-4 text-white shadow-[0_18px_45px_rgba(2,6,23,0.18)] backdrop-blur-xl sm:px-8 sm:py-5">
+          <div className="mb-3 flex items-center justify-center gap-4">
+  <h2 className="text-[30px] font-semibold tracking-[-0.04em] text-white sm:text-[34px]">
+    ASK TASK
+  </h2>
+
+  <span className="rounded-full border border-white/15 bg-white/8 px-5 py-2 text-sm font-semibold text-white/80 backdrop-blur-xl">
+    Единый ID для всех платформ
+  </span>
+</div>
+
+              <p className="mx-auto mt-3 max-w-4xl text-center text-[15px] leading-7 text-white/88 sm:mt-4 sm:text-[17px]">
+                Мы сделали <span className="font-semibold text-white">единый ID</span> для работы с любой платформы: Веб-сайт, Телеграм бот и MAX бот. Для вас это единый личный кабинет с заданиями, где все синхронизировано.
+              </p>
+            </section>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setBotModalOpen("tg")}
+              className="group relative overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(135deg,rgba(113,151,219,0.96),rgba(73,107,166,0.96))] px-5 py-5 text-left text-white shadow-[0_18px_40px_rgba(37,99,235,0.18)] transition hover:-translate-y-[2px] hover:shadow-[0_22px_46px_rgba(37,99,235,0.24)] sm:px-6 sm:py-5"
+            >
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.24),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02)_45%,rgba(255,255,255,0))]" />
+              <div className="relative z-10 flex h-full flex-col">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="hidden text-[14px] font-semibold text-white/75 sm:block">
+                      Быстрый доступ
+                    </div>
+                    <h3 className="mt-2 whitespace-nowrap text-[28px] font-semibold leading-[1.02] tracking-[-0.03em] text-white sm:mt-3 sm:text-[30px]">
+                      Бот в Телеграм
+                    </h3>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-3 pl-2 sm:pt-[2px]">
+                    <span className="whitespace-nowrap text-[14px] font-semibold text-white/78 sm:text-[15px]">
+                      ASK TASK TG
+                    </span>
+                    <span className="flex h-12 w-12 items-center justify-center rounded-[16px] border border-white/10 bg-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.10)] backdrop-blur-md">
+                      <img
+                        src="/Telegram.png"
+                        alt="Telegram"
+                        className="h-6 w-6 object-contain"
+                      />
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-4 text-[15px] leading-7 text-white/88 sm:text-[17px]">
+                  <p className="hidden sm:block">
+                    Все задания для заработка уже доступны в телеграм боте.
+                  </p>
+                  <p className="sm:hidden">
+                    Те же задания для заработка доступны в Телеграм-боте.
+                  </p>
+                </div>
+
+                <div className="mt-5 flex items-center justify-between gap-3">
+                  <div className="inline-flex min-h-[42px] items-center rounded-full border border-white/10 bg-white/12 px-5 text-[14px] font-semibold text-white/92 backdrop-blur-md">
+                    Синхронизировано
+                  </div>
+
+                  <div className="inline-flex min-h-[42px] min-w-[152px] items-center justify-center rounded-full border border-white/10 bg-white/12 px-6 text-[16px] font-semibold text-white backdrop-blur-md transition group-hover:bg-white/16">
+                    Открыть
+                  </div>
+                </div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setBotModalOpen("max")}
+              className="group relative overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(135deg,rgba(152,133,228,0.96),rgba(104,95,182,0.96))] px-5 py-5 text-left text-white shadow-[0_18px_40px_rgba(109,40,217,0.18)] transition hover:-translate-y-[2px] hover:shadow-[0_22px_46px_rgba(109,40,217,0.24)] sm:px-6 sm:py-5"
+            >
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.24),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02)_45%,rgba(255,255,255,0))]" />
+              <div className="relative z-10 flex h-full flex-col">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="hidden text-[14px] font-semibold text-white/75 sm:block">
+                      Скоро
+                    </div>
+                    <h3 className="mt-2 whitespace-nowrap text-[28px] font-semibold leading-[1.02] tracking-[-0.03em] text-white sm:mt-3 sm:text-[30px]">
+                      Бот в MAX
+                    </h3>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-3 pl-2 sm:pt-[2px]">
+                    <span className="whitespace-nowrap text-[14px] font-semibold text-white/78 sm:text-[15px]">
+                      ASK TASK MAX
+                    </span>
+                    <span className="flex h-12 w-12 items-center justify-center rounded-[16px] border border-white/10 bg-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.10)] backdrop-blur-md">
+                      <img
+                        src="/Max.png"
+                        alt="MAX"
+                        className="h-6 w-6 object-contain"
+                      />
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-4 text-[15px] leading-7 text-white/88 sm:text-[17px]">
+                  <p className="hidden sm:block">
+                    Вы можете выполнять задания через мессенджер MAX.
+                  </p>
+                  <p className="sm:hidden">
+                    Их также можно выполнять через мессенджер MAX.
+                  </p>
+                </div>
+
+                <div className="mt-5 flex items-center justify-between gap-3">
+                  <div className="inline-flex min-h-[42px] items-center rounded-full border border-white/10 bg-white/12 px-5 text-[14px] font-semibold text-white/92 backdrop-blur-md">
+                    Синхронизировано
+                  </div>
+
+                  <div className="inline-flex min-h-[42px] min-w-[208px] items-center justify-center rounded-full border border-white/10 bg-white/12 px-6 text-[16px] font-semibold text-white/75 backdrop-blur-md">
+                    Временно недоступно
+                  </div>
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
       </div>
 
       {statusModalOpen && statusData && (
@@ -888,9 +1014,73 @@ useEffect(() => {
                 </div>
               </div>
             </div>
+            </div>
+          </div>
+     
+      )}
+
+
+      {botModalOpen && (
+        <div className="fixed inset-0 z-[100] bg-slate-950/45 backdrop-blur-sm">
+          <div className="flex min-h-dvh items-center justify-center p-3 sm:p-4">
+            <div className="w-full max-w-md rounded-[26px] border border-white/70 bg-white p-5 shadow-[0_24px_60px_rgba(15,23,42,0.18)] sm:rounded-[30px] sm:p-6">
+            <h3 className="mb-4 text-[24px] font-bold tracking-tight text-slate-900 sm:text-2xl">
+              {botModalOpen === "tg" ? "Бот в Телеграм" : "Бот в MAX"}
+            </h3>
+
+            <div className="rounded-[20px] border border-slate-200 bg-slate-50 p-4 text-slate-700 sm:rounded-[22px]">
+              {botModalOpen === "tg" ? (
+                <div className="space-y-3">
+                  <div className="font-semibold text-slate-900">
+                    Те же задания для заработка доступны в Телеграм-боте.
+                  </div>
+                  <div className="text-sm leading-6">
+                    Откройте бот и продолжайте работать с тем же единым ID, что и в личном кабинете.
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="font-semibold text-slate-900">
+                    Их также можно выполнять через мессенджер MAX.
+                  </div>
+                  <div className="text-sm leading-6">
+                    Доступ для MAX появится позже. Ваш единый ID и синхронизация уже подготовлены.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+              {botModalOpen === "tg" ? (
+                <a
+                  href="https://t.me/Ask_task_bot"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-slate-950 px-5 font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Открыть бота
+                </a>
+              ) : (
+                <button
+                  disabled
+                  className="inline-flex h-12 w-full cursor-not-allowed items-center justify-center rounded-2xl bg-slate-200 px-5 font-semibold text-slate-500"
+                >
+                  Скоро будет доступно
+                </button>
+              )}
+
+              <button
+                onClick={() => setBotModalOpen(null)}
+                className="inline-flex h-12 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 font-semibold text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition hover:bg-slate-50"
+              >
+                Закрыть
+              </button>
+            </div>
+            </div>
           </div>
         </div>
       )}
+
 
       {referralModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-sm sm:p-4">
