@@ -64,7 +64,7 @@ export default function LoginPage() {
     const script = document.createElement("script");
     script.src = "https://telegram.org/js/telegram-widget.js?22";
     script.async = true;
-    script.setAttribute("data-telegram-login", "Alplha_bot");
+    script.setAttribute("data-telegram-login", "Ask_task_bot");
     script.setAttribute("data-size", "large");
     script.setAttribute("data-userpic", "false");
     script.setAttribute("data-request-access", "write");
@@ -245,7 +245,7 @@ export default function LoginPage() {
 
             <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4 shadow-inner">
               <div className="mb-3 text-sm text-slate-500">
-                Используйте ваш Telegram-аккаунт для быстрого входа
+                Используйте ваш Telegram-аккаунт для быстрого входа (у вас должен быть включен VPN)
               </div>
 
               <div ref={telegramModalRef} />
