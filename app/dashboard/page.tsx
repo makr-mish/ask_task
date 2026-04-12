@@ -97,45 +97,94 @@ export default function DashboardPage() {
     };
   };
 
-  const loadFreeCounts = async () => {
+   const loadFreeCounts = async () => {
     if (!user) return;
 
     setLoadingFree(true);
 
     const results: Record<string, string> = {};
+    const BATCH_SIZE = 3;
 
-    await Promise.all(
-      visiblePlatforms.map(async (platform) => {
-        try {
-          const url = `/api/free/${platform.path}?userId=${user.USER_ID_TEXT}`;
-          const res = await fetch(url);
-          const json = await res.json();
+    try {
+      for (let i = 0; i < visiblePlatforms.length; i += BATCH_SIZE) {
+        const batch = visiblePlatforms.slice(i, i + BATCH_SIZE);
 
-          if (!res.ok) {
-            console.error(`Ошибка ${platform.key}:`, json);
-            results[platform.key] = "Ошибка";
-            return;
-          }
+        await Promise.all(
+          batch.map(async (platform) => {
+            try {
+              const url = `/api/free/${platform.path}?userId=${encodeURIComponent(
+                user.USER_ID_TEXT,
+              )}`;
 
-          const data = json.data;
+              const controller = new AbortController();
+              const timeoutId = window.setTimeout(() => controller.abort(), 9000);
 
-          if (data?.result !== undefined) {
-            results[platform.key] = String(data.result);
-          } else if (typeof data === "number" || typeof data === "string") {
-            results[platform.key] = String(data);
-          } else {
-            results[platform.key] = "0";
-          }
-        } catch (error) {
-          console.error(`Ошибка загрузки ${platform.key}:`, error);
-          results[platform.key] = "Ошибка";
-        }
-      }),
-    );
+              let res: Response;
 
-    setFreeCounts(results);
-    setFreeLoaded(true);
-    setLoadingFree(false);
+              try {
+                res = await fetch(url, {
+                  method: "GET",
+                  cache: "no-store",
+                  signal: controller.signal,
+                });
+              } finally {
+                window.clearTimeout(timeoutId);
+              }
+
+              const json = await res.json().catch(() => null);
+
+              if (!res.ok) {
+                console.error(`Ошибка ${platform.key}:`, json);
+                results[platform.key] = "Ошибка";
+                return;
+              }
+
+              const data = json?.data;
+
+              if (
+                data &&
+                typeof data === "object" &&
+                "result" in data &&
+                data.result !== undefined &&
+                data.result !== null
+              ) {
+                results[platform.key] = String(data.result);
+                return;
+              }
+
+              if (typeof data === "number" || typeof data === "string") {
+                results[platform.key] = String(data);
+                return;
+              }
+
+              if (
+                data &&
+                typeof data === "object" &&
+                "data" in data &&
+                data.data &&
+                typeof data.data === "object" &&
+                "result" in data.data &&
+                data.data.result !== undefined &&
+                data.data.result !== null
+              ) {
+                results[platform.key] = String(data.data.result);
+                return;
+              }
+
+              results[platform.key] = "0";
+            } catch (error) {
+              console.error(`Ошибка загрузки ${platform.key}:`, error);
+              results[platform.key] = "Ошибка";
+            }
+          }),
+        );
+      }
+
+      setFreeCounts(results);
+      setFreeLoaded(true);
+    } finally {
+      setLoadingFree(false);
+    }
   };
 
   const createRipple = (
@@ -478,18 +527,17 @@ useEffect(() => {
                     ) : (
                       <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
                         {visiblePlatforms.map((platform) => {
-                          const freeValue = freeCounts[platform.key] ?? "0";
+                          const freeValue = freeCounts[platform.key] ?? "—";
                           const cardStyle = getTaskCardStyle(freeValue);
 
-                          const freeNum = Number(freeValue ?? 0);
-                          const isZeroFree = Number.isFinite(freeNum)
-                            ? freeNum <= 0
-                            : false;
+const freeNum = Number(freeValue);
+const isErrorState = freeValue === "Ошибка" || freeValue === "—";
+const isZeroFree = Number.isFinite(freeNum) ? freeNum <= 0 : false;
                           const isAvitoDisabled = platform.label === "Авито";
                           const isDreamJobDisabled =
                             platform.label === "Dream Job";
-                          const isDisabledCard =
-                            isAvitoDisabled || isDreamJobDisabled || isZeroFree;
+const isDisabledCard =
+  isAvitoDisabled || isDreamJobDisabled || isZeroFree || isErrorState;
 
                           return (
                             <div
