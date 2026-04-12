@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 
 const TIMEOUT_MS = 8000;
 
+const cache = new Map<string, {
+  data: any;
+  timestamp: number;
+}>();
+
+const CACHE_TTL = 30000; // 30 секунд
+
 function withTimeout(signal?: AbortSignal) {
   const controller = new AbortController();
 
@@ -54,6 +61,22 @@ export async function GET(
       );
     }
 
+    const cacheKey = `${platform}_${userId}`;
+    const now = Date.now();
+
+    const cached = cache.get(cacheKey);
+
+    if (cached && now - cached.timestamp < CACHE_TTL) {
+      console.log(`[free:${platform}] CACHE HIT`);
+      return NextResponse.json({
+        ok: true,
+        cached: true,
+        data: cached.data,
+      });
+    }
+
+    console.log(`[free:${platform}] CACHE MISS`);
+
     const backendUrl = `${base}/feedbacks/free/${platform}/${userId}/${token}`;
     const timeout = withTimeout();
 
@@ -76,6 +99,14 @@ export async function GET(
       console.log(
         `[free:${platform}] user=${userId} status=${res.status} time=${Date.now() - startedAt}ms`,
       );
+
+      // ✅ СОХРАНЯЕМ В КЭШ ТОЛЬКО УСПЕШНЫЕ ОТВЕТЫ
+      if (res.ok) {
+        cache.set(cacheKey, {
+          data,
+          timestamp: now,
+        });
+      }
 
       return NextResponse.json(
         {
