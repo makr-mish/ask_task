@@ -57,6 +57,7 @@ export default function DashboardPage() {
   } | null>(null);
 
   const [referralModalOpen, setReferralModalOpen] = useState(false);
+  const [supportModalOpen, setSupportModalOpen] = useState(false);
 
   const [botModalOpen, setBotModalOpen] = useState<"tg" | "max" | null>(null);
 
@@ -772,16 +773,15 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <a
-                    href="https://t.me/mikhail_managers"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => setSupportModalOpen(true)}
                     className="flex h-full flex-col justify-center rounded-[20px] border border-slate-200 bg-white/80 p-5 text-center transition hover:-translate-y-[2px] hover:bg-white hover:shadow-[0_12px_24px_rgba(15,23,42,0.08)] sm:rounded-[22px]"
                   >
                     <div className="text-[18px] font-bold text-slate-900 sm:text-lg">
                       Поддержка
                     </div>
-                  </a>
+                  </button>
 
                   <a
                     href="https://t.me/+Xw-kkI6yW4sxOWJi"
@@ -1122,6 +1122,43 @@ export default function DashboardPage() {
                     Закрыть
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {supportModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-3 backdrop-blur-sm sm:p-4">
+            <div className="w-full max-w-md rounded-[26px] border border-white/70 bg-white p-5 shadow-[0_24px_60px_rgba(15,23,42,0.18)] sm:rounded-[30px] sm:p-6">
+              <h3 className="mb-4 text-[24px] font-bold tracking-tight text-slate-900 sm:text-2xl">
+                Поддержка
+              </h3>
+
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => (window.location.href = "/support")}
+                  className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-slate-950 px-5 font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Создать тикет в поддержку
+                </button>
+
+                <a
+                  href="https://t.me/mikhail_managers"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-12 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 font-semibold text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition hover:bg-slate-50"
+                >
+                  Написать напрямую в поддержку TG
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => setSupportModalOpen(false)}
+                  className="inline-flex h-12 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 font-semibold text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition hover:bg-slate-50"
+                >
+                  Закрыть
+                </button>
               </div>
             </div>
           </div>
