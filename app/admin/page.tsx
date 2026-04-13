@@ -25,16 +25,40 @@ type EventRow = {
   user_id: string;
   platform: string | null;
   event_type: string;
-  created_at: string;
+  created_at: string | Date;
 };
 
 type DailyRow = {
-  day: string;
+  day: string | Date;
   visits: number;
   started: number;
   assigned: number;
   submitted: number;
 };
+
+function formatDateTime(value: string | Date | null | undefined) {
+  if (!value) return "—";
+
+  const date = value instanceof Date ? value : new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return date.toLocaleString("ru-RU");
+}
+
+function formatDateOnly(value: string | Date | null | undefined) {
+  if (!value) return "—";
+
+  const date = value instanceof Date ? value : new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return date.toLocaleDateString("ru-RU");
+}
 
 export default async function AdminPage() {
   const cookieStore = await cookies();
@@ -253,8 +277,10 @@ export default async function AdminPage() {
               </thead>
               <tbody>
                 {(dailyRows as DailyRow[]).map((row, index) => (
-                  <tr key={`${row.day}-${index}`} className="border-b border-slate-100">
-                    <td className="px-3 py-3 font-medium text-slate-900">{row.day}</td>
+                  <tr key={`${String(row.day)}-${index}`} className="border-b border-slate-100">
+                    <td className="px-3 py-3 font-medium text-slate-900">
+                      {formatDateOnly(row.day)}
+                    </td>
                     <td className="px-3 py-3">{row.visits}</td>
                     <td className="px-3 py-3">{row.started}</td>
                     <td className="px-3 py-3">{row.assigned}</td>
@@ -282,7 +308,7 @@ export default async function AdminPage() {
               <tbody>
                 {(latestRows as EventRow[]).map((row) => (
                   <tr key={row.id} className="border-b border-slate-100">
-                    <td className="px-3 py-3">{row.created_at}</td>
+                    <td className="px-3 py-3">{formatDateTime(row.created_at)}</td>
                     <td className="px-3 py-3 font-medium text-slate-900">{row.user_id}</td>
                     <td className="px-3 py-3">{row.platform || "—"}</td>
                     <td className="px-3 py-3">{row.event_type}</td>
