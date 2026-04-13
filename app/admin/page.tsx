@@ -36,6 +36,16 @@ type DailyRow = {
   submitted: number;
 };
 
+type PlatformOptionRow = {
+  platform: string | null;
+};
+
+type SearchParams = {
+  dateFrom?: string;
+  dateTo?: string;
+  platform?: string;
+};
+
 function formatDateTime(value: string | Date | null | undefined) {
   if (!value) return "—";
 
@@ -60,7 +70,31 @@ function formatDateOnly(value: string | Date | null | undefined) {
   return date.toLocaleDateString("ru-RU");
 }
 
-export default async function AdminPage() {
+function getEventLabel(eventType: string) {
+  const map: Record<string, string> = {
+    dashboard_visit: "Зашел в кабинет",
+    tasks_open: "Открыл раздел заданий",
+    task_page_open: "Открыл страницу задания",
+    task_request_started: "Начал брать задание",
+    task_assigned: "Получил задание",
+    task_submit: "Отправил на проверку",
+    task_reset: "Сбросил задание",
+    task_error: "Ошибка",
+  };
+
+  return map[eventType] || eventType;
+}
+
+function normalizeDate(value?: string) {
+  if (!value) return "";
+  return value.trim();
+}
+
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams?: Promise<SearchParams>;
+}) {
   const cookieStore = await cookies();
   const sessionValue = cookieStore.get(getAdminCookieName())?.value;
 
@@ -68,49 +102,95 @@ export default async function AdminPage() {
     redirect("/admin-login");
   }
 
-  const [todayVisitsRows] = await db.query(
+  const resolvedSearchParams = (await searchParams) || {};
+
+  const dateFrom = normalizeDate(resolvedSearchParams.dateFrom);
+  const dateTo = normalizeDate(resolvedSearchParams.dateTo);
+  const platform = normalizeDate(resolvedSearchParams.platform);
+
+  const filters: string[] = [];
+  const params: Array<string> = [];
+
+  if (dateFrom) {
+    filters.push("created_at >= ?");
+    params.push(`${dateFrom} 00:00:00`);
+  }
+
+  if (dateTo) {
+    filters.push("created_at <= ?");
+    params.push(`${dateTo} 23:59:59`);
+  }
+
+  if (platform) {
+    filters.push("platform = ?");
+    params.push(platform);
+  }
+
+  const whereClause = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
+
+  const [platformOptionsRows] = await db.query(
     `
-    SELECT COUNT(*) as total
+    SELECT DISTINCT platform
     FROM task_events
-    WHERE event_type = 'dashboard_visit'
-      AND DATE(created_at) = CURDATE()
+    WHERE platform IS NOT NULL
+      AND platform <> ''
+    ORDER BY platform ASC
     `,
   );
 
-  const [todayStartedRows] = await db.query(
+  const [totalVisitsRows] = await db.query(
     `
     SELECT COUNT(*) as total
     FROM task_events
-    WHERE event_type = 'task_request_started'
-      AND DATE(created_at) = CURDATE()
+    ${whereClause ? `${whereClause} AND event_type = 'dashboard_visit'` : "WHERE event_type = 'dashboard_visit'"}
     `,
+    params,
   );
 
-  const [todayAssignedRows] = await db.query(
+  const [totalStartedRows] = await db.query(
     `
     SELECT COUNT(*) as total
     FROM task_events
-    WHERE event_type = 'task_assigned'
-      AND DATE(created_at) = CURDATE()
+    ${whereClause ? `${whereClause} AND event_type = 'task_request_started'` : "WHERE event_type = 'task_request_started'"}
     `,
+    params,
   );
 
-  const [todaySubmittedRows] = await db.query(
+  const [totalAssignedRows] = await db.query(
     `
     SELECT COUNT(*) as total
     FROM task_events
-    WHERE event_type = 'task_submit'
-      AND DATE(created_at) = CURDATE()
+    ${whereClause ? `${whereClause} AND event_type = 'task_assigned'` : "WHERE event_type = 'task_assigned'"}
     `,
+    params,
   );
 
-  const [todayUsersRows] = await db.query(
+  const [totalSubmittedRows] = await db.query(
+    `
+    SELECT COUNT(*) as total
+    FROM task_events
+    ${whereClause ? `${whereClause} AND event_type = 'task_submit'` : "WHERE event_type = 'task_submit'"}
+    `,
+    params,
+  );
+
+  const [uniqueUsersRows] = await db.query(
     `
     SELECT COUNT(DISTINCT user_id) as total
     FROM task_events
-    WHERE DATE(created_at) = CURDATE()
+    ${whereClause}
     `,
+    params,
   );
+
+  const platformWhere = filters.filter((item) => item !== "platform = ?");
+  const platformParams =
+    platform && params.length > 0
+      ? params.filter((_, index) => {
+          const filterIndex = filters.findIndex((f, i) => f === "platform = ?" && i === index);
+          return filterIndex === -1;
+        })
+      : [...params];
 
   const [platformRows] = await db.query(
     `
@@ -121,21 +201,26 @@ export default async function AdminPage() {
       SUM(CASE WHEN event_type = 'task_assigned' THEN 1 ELSE 0 END) as assigned,
       SUM(CASE WHEN event_type = 'task_submit' THEN 1 ELSE 0 END) as submitted
     FROM task_events
-    WHERE created_at >= NOW() - INTERVAL 30 DAY
-      AND platform IS NOT NULL
-      AND platform <> ''
+    ${
+      platformWhere.length > 0
+        ? `WHERE ${platformWhere.join(" AND ")} AND platform IS NOT NULL AND platform <> ''`
+        : "WHERE platform IS NOT NULL AND platform <> ''"
+    }
     GROUP BY platform
-    ORDER BY submitted DESC, assigned DESC, started DESC
+    ORDER BY submitted DESC, assigned DESC, started DESC, opens DESC
     `,
+    platform ? params.filter((_, index) => filters[index] !== "platform = ?") : params,
   );
 
   const [latestRows] = await db.query(
     `
     SELECT id, user_id, platform, event_type, created_at
     FROM task_events
+    ${whereClause}
     ORDER BY created_at DESC
-    LIMIT 30
+    LIMIT 50
     `,
+    params,
   );
 
   const [dailyRows] = await db.query(
@@ -147,23 +232,31 @@ export default async function AdminPage() {
       SUM(CASE WHEN event_type = 'task_assigned' THEN 1 ELSE 0 END) as assigned,
       SUM(CASE WHEN event_type = 'task_submit' THEN 1 ELSE 0 END) as submitted
     FROM task_events
-    WHERE created_at >= CURDATE() - INTERVAL 7 DAY
+    ${whereClause}
     GROUP BY DATE(created_at)
     ORDER BY day DESC
+    LIMIT 30
     `,
+    params,
   );
 
-  const todayVisits = (todayVisitsRows as StatRow[])[0]?.total ?? 0;
-  const todayStarted = (todayStartedRows as StatRow[])[0]?.total ?? 0;
-  const todayAssigned = (todayAssignedRows as StatRow[])[0]?.total ?? 0;
-  const todaySubmitted = (todaySubmittedRows as StatRow[])[0]?.total ?? 0;
-  const todayUsers = (todayUsersRows as StatRow[])[0]?.total ?? 0;
+  const totalVisits = (totalVisitsRows as StatRow[])[0]?.total ?? 0;
+  const totalStarted = (totalStartedRows as StatRow[])[0]?.total ?? 0;
+  const totalAssigned = (totalAssignedRows as StatRow[])[0]?.total ?? 0;
+  const totalSubmitted = (totalSubmittedRows as StatRow[])[0]?.total ?? 0;
+  const uniqueUsers = (uniqueUsersRows as StatRow[])[0]?.total ?? 0;
 
   const conversionAssigned =
-    todayStarted > 0 ? Math.round((todayAssigned / todayStarted) * 100) : 0;
+    totalStarted > 0 ? Math.round((totalAssigned / totalStarted) * 100) : 0;
 
   const conversionSubmitted =
-    todayAssigned > 0 ? Math.round((todaySubmitted / todayAssigned) * 100) : 0;
+    totalAssigned > 0 ? Math.round((totalSubmitted / totalAssigned) * 100) : 0;
+
+  const platformOptions = (platformOptionsRows as PlatformOptionRow[])
+    .map((row) => row.platform)
+    .filter((value): value is string => Boolean(value));
+
+  const activeFilterCount = [dateFrom, dateTo, platform].filter(Boolean).length;
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-6 sm:px-6">
@@ -171,7 +264,9 @@ export default async function AdminPage() {
         <div className="flex flex-col gap-4 rounded-3xl bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Админка ASK TASK</h1>
-            <p className="mt-1 text-slate-500">Статистика по исполнителям и заданиям</p>
+            <p className="mt-1 text-slate-500">
+              Статистика по исполнителям и заданиям
+            </p>
           </div>
 
           <form action="/api/admin/logout" method="post">
@@ -184,45 +279,125 @@ export default async function AdminPage() {
           </form>
         </div>
 
+        <section className="rounded-3xl bg-white p-6 shadow-sm">
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-2xl font-bold text-slate-900">Фильтры</h2>
+
+            {activeFilterCount > 0 && (
+              <a
+                href="/admin"
+                className="inline-flex h-10 items-center justify-center rounded-2xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Сбросить фильтры
+              </a>
+            )}
+          </div>
+
+          <form method="GET" className="grid gap-4 md:grid-cols-4">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-600">
+                Дата от
+              </label>
+              <input
+                type="date"
+                name="dateFrom"
+                defaultValue={dateFrom}
+                className="h-11 w-full rounded-2xl border border-slate-200 px-4 text-sm outline-none transition focus:border-slate-400"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-600">
+                Дата до
+              </label>
+              <input
+                type="date"
+                name="dateTo"
+                defaultValue={dateTo}
+                className="h-11 w-full rounded-2xl border border-slate-200 px-4 text-sm outline-none transition focus:border-slate-400"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-600">
+                Платформа
+              </label>
+              <select
+                name="platform"
+                defaultValue={platform}
+                className="h-11 w-full rounded-2xl border border-slate-200 px-4 text-sm outline-none transition focus:border-slate-400"
+              >
+                <option value="">Все платформы</option>
+                {platformOptions.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-end">
+              <button
+                type="submit"
+                className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                Применить
+              </button>
+            </div>
+          </form>
+        </section>
+
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-3xl bg-white p-5 shadow-sm">
-            <div className="text-sm text-slate-500">Заходов сегодня</div>
-            <div className="mt-2 text-3xl font-bold text-slate-900">{todayVisits}</div>
+            <div className="text-sm text-slate-500">
+              {activeFilterCount > 0 ? "Заходов по фильтру" : "Заходов сегодня"}
+            </div>
+            <div className="mt-2 text-3xl font-bold text-slate-900">{totalVisits}</div>
           </div>
 
           <div className="rounded-3xl bg-white p-5 shadow-sm">
-            <div className="text-sm text-slate-500">Уникальных пользователей сегодня</div>
-            <div className="mt-2 text-3xl font-bold text-slate-900">{todayUsers}</div>
+            <div className="text-sm text-slate-500">
+              {activeFilterCount > 0
+                ? "Уникальных пользователей"
+                : "Уникальных пользователей сегодня"}
+            </div>
+            <div className="mt-2 text-3xl font-bold text-slate-900">{uniqueUsers}</div>
           </div>
 
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="text-sm text-slate-500">Начали брать задание</div>
-            <div className="mt-2 text-3xl font-bold text-slate-900">{todayStarted}</div>
+            <div className="mt-2 text-3xl font-bold text-slate-900">{totalStarted}</div>
           </div>
 
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="text-sm text-slate-500">Выдано заданий</div>
-            <div className="mt-2 text-3xl font-bold text-slate-900">{todayAssigned}</div>
+            <div className="mt-2 text-3xl font-bold text-slate-900">{totalAssigned}</div>
           </div>
 
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="text-sm text-slate-500">Отправлено на проверку</div>
-            <div className="mt-2 text-3xl font-bold text-slate-900">{todaySubmitted}</div>
+            <div className="mt-2 text-3xl font-bold text-slate-900">{totalSubmitted}</div>
           </div>
 
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="text-sm text-slate-500">Конверсия в выдачу</div>
-            <div className="mt-2 text-3xl font-bold text-slate-900">{conversionAssigned}%</div>
+            <div className="mt-2 text-3xl font-bold text-slate-900">
+              {conversionAssigned}%
+            </div>
           </div>
 
           <div className="rounded-3xl bg-white p-5 shadow-sm">
             <div className="text-sm text-slate-500">Конверсия в отправку</div>
-            <div className="mt-2 text-3xl font-bold text-slate-900">{conversionSubmitted}%</div>
+            <div className="mt-2 text-3xl font-bold text-slate-900">
+              {conversionSubmitted}%
+            </div>
           </div>
         </div>
 
         <section className="rounded-3xl bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-2xl font-bold text-slate-900">По платформам за 30 дней</h2>
+          <h2 className="mb-4 text-2xl font-bold text-slate-900">
+            По платформам
+          </h2>
 
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
@@ -237,32 +412,43 @@ export default async function AdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {(platformRows as PlatformRow[]).map((row, index) => {
-                  const conversion =
-                    row.assigned > 0
-                      ? Math.round((row.submitted / row.assigned) * 100)
-                      : 0;
+                {(platformRows as PlatformRow[]).length === 0 ? (
+                  <tr>
+                    <td className="px-3 py-4 text-slate-500" colSpan={6}>
+                      Нет данных
+                    </td>
+                  </tr>
+                ) : (
+                  (platformRows as PlatformRow[]).map((row, index) => {
+                    const conversion =
+                      row.assigned > 0
+                        ? Math.round((row.submitted / row.assigned) * 100)
+                        : 0;
 
-                  return (
-                    <tr key={`${row.platform}-${index}`} className="border-b border-slate-100">
-                      <td className="px-3 py-3 font-medium text-slate-900">
-                        {row.platform || "—"}
-                      </td>
-                      <td className="px-3 py-3">{row.opens}</td>
-                      <td className="px-3 py-3">{row.started}</td>
-                      <td className="px-3 py-3">{row.assigned}</td>
-                      <td className="px-3 py-3">{row.submitted}</td>
-                      <td className="px-3 py-3">{conversion}%</td>
-                    </tr>
-                  );
-                })}
+                    return (
+                      <tr
+                        key={`${row.platform}-${index}`}
+                        className="border-b border-slate-100"
+                      >
+                        <td className="px-3 py-3 font-medium text-slate-900">
+                          {row.platform || "—"}
+                        </td>
+                        <td className="px-3 py-3">{row.opens}</td>
+                        <td className="px-3 py-3">{row.started}</td>
+                        <td className="px-3 py-3">{row.assigned}</td>
+                        <td className="px-3 py-3">{row.submitted}</td>
+                        <td className="px-3 py-3">{conversion}%</td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
         </section>
 
         <section className="rounded-3xl bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-2xl font-bold text-slate-900">По дням за 7 дней</h2>
+          <h2 className="mb-4 text-2xl font-bold text-slate-900">По дням</h2>
 
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
@@ -276,24 +462,37 @@ export default async function AdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {(dailyRows as DailyRow[]).map((row, index) => (
-                  <tr key={`${String(row.day)}-${index}`} className="border-b border-slate-100">
-                    <td className="px-3 py-3 font-medium text-slate-900">
-                      {formatDateOnly(row.day)}
+                {(dailyRows as DailyRow[]).length === 0 ? (
+                  <tr>
+                    <td className="px-3 py-4 text-slate-500" colSpan={5}>
+                      Нет данных
                     </td>
-                    <td className="px-3 py-3">{row.visits}</td>
-                    <td className="px-3 py-3">{row.started}</td>
-                    <td className="px-3 py-3">{row.assigned}</td>
-                    <td className="px-3 py-3">{row.submitted}</td>
                   </tr>
-                ))}
+                ) : (
+                  (dailyRows as DailyRow[]).map((row, index) => (
+                    <tr
+                      key={`${String(row.day)}-${index}`}
+                      className="border-b border-slate-100"
+                    >
+                      <td className="px-3 py-3 font-medium text-slate-900">
+                        {formatDateOnly(row.day)}
+                      </td>
+                      <td className="px-3 py-3">{row.visits}</td>
+                      <td className="px-3 py-3">{row.started}</td>
+                      <td className="px-3 py-3">{row.assigned}</td>
+                      <td className="px-3 py-3">{row.submitted}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </section>
 
         <section className="rounded-3xl bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-2xl font-bold text-slate-900">Последние события</h2>
+          <h2 className="mb-4 text-2xl font-bold text-slate-900">
+            Последние события
+          </h2>
 
           <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
@@ -306,14 +505,24 @@ export default async function AdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {(latestRows as EventRow[]).map((row) => (
-                  <tr key={row.id} className="border-b border-slate-100">
-                    <td className="px-3 py-3">{formatDateTime(row.created_at)}</td>
-                    <td className="px-3 py-3 font-medium text-slate-900">{row.user_id}</td>
-                    <td className="px-3 py-3">{row.platform || "—"}</td>
-                    <td className="px-3 py-3">{row.event_type}</td>
+                {(latestRows as EventRow[]).length === 0 ? (
+                  <tr>
+                    <td className="px-3 py-4 text-slate-500" colSpan={4}>
+                      Нет данных
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  (latestRows as EventRow[]).map((row) => (
+                    <tr key={row.id} className="border-b border-slate-100">
+                      <td className="px-3 py-3">{formatDateTime(row.created_at)}</td>
+                      <td className="px-3 py-3 font-medium text-slate-900">
+                        {row.user_id}
+                      </td>
+                      <td className="px-3 py-3">{row.platform || "—"}</td>
+                      <td className="px-3 py-3">{getEventLabel(row.event_type)}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
