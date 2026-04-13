@@ -281,23 +281,32 @@ export default async function AdminPage({
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-6 sm:px-6">
       <div className="mx-auto max-w-7xl space-y-6">
-        <div className="flex flex-col gap-4 rounded-3xl bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Админка ASK TASK</h1>
-            <p className="mt-1 text-slate-500">
-              Статистика по исполнителям и заданиям
-            </p>
-          </div>
+<div className="flex flex-col gap-4 rounded-3xl bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+  <div>
+    <h1 className="text-3xl font-bold text-slate-900">Админка ASK TASK</h1>
+    <p className="mt-1 text-slate-500">
+      Статистика по исполнителям и заданиям
+    </p>
+  </div>
 
-          <form action="/api/admin/logout" method="post">
-            <button
-              type="submit"
-              className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
-            >
-              Выйти
-            </button>
-          </form>
-        </div>
+  <div className="flex flex-col gap-3 sm:flex-row">
+    <a
+      href="/admin/tickets"
+      className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+    >
+      Тикеты поддержки
+    </a>
+
+    <form action="/api/admin/logout" method="post">
+      <button
+        type="submit"
+        className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+      >
+        Выйти
+      </button>
+    </form>
+  </div>
+</div>
 
         <section className="rounded-3xl bg-white p-6 shadow-sm">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

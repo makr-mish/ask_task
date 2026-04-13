@@ -60,14 +60,12 @@ export default async function AdminTicketsPage() {
             </p>
           </div>
 
-          <div className="flex gap-3">
-            <a
-              href="/admin"
-              className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              Назад в админку
-            </a>
-          </div>
+          <a
+            href="/admin"
+            className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            Назад в админку
+          </a>
         </div>
 
         <section className="rounded-3xl bg-white p-6 shadow-sm">
