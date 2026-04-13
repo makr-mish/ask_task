@@ -62,7 +62,7 @@ export default function AdminFreeReviews() {
 
               const numericValue = Number(rawValue);
 
-              if (!Number.isFinite(numericValue) || numericValue <= 5) {
+              if (!Number.isFinite(numericValue) || numericValue <= 0) {
                 return null;
               }
 
