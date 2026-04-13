@@ -5,6 +5,7 @@ import {
   getAdminCookieName,
   verifyAdminSessionValue,
 } from "@/lib/admin-auth";
+import AdminFreeReviews from "@/components/AdminFreeReviews";
 
 export const runtime = "nodejs";
 
@@ -90,6 +91,10 @@ function normalizeDate(value?: string) {
   return value.trim();
 }
 
+function buildWhere(filters: string[]) {
+  return filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
+}
+
 export default async function AdminPage({
   searchParams,
 }: {
@@ -126,7 +131,7 @@ export default async function AdminPage({
     params.push(platform);
   }
 
-  const whereClause = filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
+  const baseWhere = buildWhere(filters);
 
   const [platformOptionsRows] = await db.query(
     `
@@ -142,7 +147,11 @@ export default async function AdminPage({
     `
     SELECT COUNT(*) as total
     FROM task_events
-    ${whereClause ? `${whereClause} AND event_type = 'dashboard_visit'` : "WHERE event_type = 'dashboard_visit'"}
+    ${
+      baseWhere
+        ? `${baseWhere} AND event_type = 'dashboard_visit'`
+        : "WHERE event_type = 'dashboard_visit'"
+    }
     `,
     params,
   );
@@ -151,7 +160,11 @@ export default async function AdminPage({
     `
     SELECT COUNT(*) as total
     FROM task_events
-    ${whereClause ? `${whereClause} AND event_type = 'task_request_started'` : "WHERE event_type = 'task_request_started'"}
+    ${
+      baseWhere
+        ? `${baseWhere} AND event_type = 'task_request_started'`
+        : "WHERE event_type = 'task_request_started'"
+    }
     `,
     params,
   );
@@ -160,7 +173,11 @@ export default async function AdminPage({
     `
     SELECT COUNT(*) as total
     FROM task_events
-    ${whereClause ? `${whereClause} AND event_type = 'task_assigned'` : "WHERE event_type = 'task_assigned'"}
+    ${
+      baseWhere
+        ? `${baseWhere} AND event_type = 'task_assigned'`
+        : "WHERE event_type = 'task_assigned'"
+    }
     `,
     params,
   );
@@ -169,7 +186,11 @@ export default async function AdminPage({
     `
     SELECT COUNT(*) as total
     FROM task_events
-    ${whereClause ? `${whereClause} AND event_type = 'task_submit'` : "WHERE event_type = 'task_submit'"}
+    ${
+      baseWhere
+        ? `${baseWhere} AND event_type = 'task_submit'`
+        : "WHERE event_type = 'task_submit'"
+    }
     `,
     params,
   );
@@ -178,19 +199,22 @@ export default async function AdminPage({
     `
     SELECT COUNT(DISTINCT user_id) as total
     FROM task_events
-    ${whereClause}
+    ${baseWhere}
     `,
     params,
   );
 
-  const platformWhere = filters.filter((item) => item !== "platform = ?");
+  const platformFilters = filters.filter((item) => item !== "platform = ?");
   const platformParams =
-    platform && params.length > 0
-      ? params.filter((_, index) => {
-          const filterIndex = filters.findIndex((f, i) => f === "platform = ?" && i === index);
-          return filterIndex === -1;
-        })
+    platform && filters.includes("platform = ?")
+      ? params.filter((value) => value !== platform)
       : [...params];
+
+  const platformWhere = buildWhere([
+    ...platformFilters,
+    "platform IS NOT NULL",
+    "platform <> ''",
+  ]);
 
   const [platformRows] = await db.query(
     `
@@ -201,22 +225,18 @@ export default async function AdminPage({
       SUM(CASE WHEN event_type = 'task_assigned' THEN 1 ELSE 0 END) as assigned,
       SUM(CASE WHEN event_type = 'task_submit' THEN 1 ELSE 0 END) as submitted
     FROM task_events
-    ${
-      platformWhere.length > 0
-        ? `WHERE ${platformWhere.join(" AND ")} AND platform IS NOT NULL AND platform <> ''`
-        : "WHERE platform IS NOT NULL AND platform <> ''"
-    }
+    ${platformWhere}
     GROUP BY platform
     ORDER BY submitted DESC, assigned DESC, started DESC, opens DESC
     `,
-    platform ? params.filter((_, index) => filters[index] !== "platform = ?") : params,
+    platformParams,
   );
 
   const [latestRows] = await db.query(
     `
     SELECT id, user_id, platform, event_type, created_at
     FROM task_events
-    ${whereClause}
+    ${baseWhere}
     ORDER BY created_at DESC
     LIMIT 50
     `,
@@ -232,7 +252,7 @@ export default async function AdminPage({
       SUM(CASE WHEN event_type = 'task_assigned' THEN 1 ELSE 0 END) as assigned,
       SUM(CASE WHEN event_type = 'task_submit' THEN 1 ELSE 0 END) as submitted
     FROM task_events
-    ${whereClause}
+    ${baseWhere}
     GROUP BY DATE(created_at)
     ORDER BY day DESC
     LIMIT 30
@@ -393,6 +413,8 @@ export default async function AdminPage({
             </div>
           </div>
         </div>
+
+        <AdminFreeReviews />
 
         <section className="rounded-3xl bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-2xl font-bold text-slate-900">
