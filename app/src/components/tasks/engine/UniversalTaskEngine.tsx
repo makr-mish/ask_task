@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { trackEvent } from "@/lib/analytics";
+import TaskAnalytics from "@/components/TaskAnalytics";
 import TaskHeaderCard from "@/app/src/components/tasks/TaskHeaderCard";
 import ControlQuestionCard from "@/app/src/components/tasks/ControlQuestionCard";
 import ExampleCard from "@/app/src/components/tasks/ExampleCard";
@@ -634,6 +636,16 @@ const progressMeta = useMemo(() => {
       setLoading(true);
       setResetMessage("");
 
+      void trackEvent({
+        userId: USER_ID_TEXT,
+        eventType: "task_request_started",
+        platform: platformKey,
+        eventData: {
+          accountName: accountName.trim(),
+          region: region.trim(),
+        },
+      });
+
       const feedbackData = await getFeedback(platformKey, {
         userIdText: USER_ID_TEXT,
         gender,
@@ -661,6 +673,13 @@ const progressMeta = useMemo(() => {
 
         setTaskText(browserTaskText);
         setStepState("taskReady");
+
+        void trackEvent({
+          userId: USER_ID_TEXT,
+          eventType: "task_assigned",
+          platform: platformKey,
+        });
+
         return;
       }
 
@@ -675,6 +694,12 @@ const progressMeta = useMemo(() => {
 
       setTaskText(taskData.taskText);
       setStepState("taskReady");
+
+      void trackEvent({
+        userId: USER_ID_TEXT,
+        eventType: "task_assigned",
+        platform: platformKey,
+      });
     } catch (error) {
       console.error(error);
 
@@ -682,6 +707,16 @@ const progressMeta = useMemo(() => {
         error instanceof Error
           ? error.message
           : "Ошибка при получении задания";
+
+      void trackEvent({
+        userId: USER_ID_TEXT,
+        eventType: "task_error",
+        platform: platformKey,
+        eventData: {
+          message,
+          stage: "handleGetFeedbackId",
+        },
+      });
 
       setModalMessage(message);
       setIsModalOpen(true);
@@ -713,6 +748,15 @@ const progressMeta = useMemo(() => {
       });
 
       const result = data?.result || data?.data?.result || fbId;
+
+      void trackEvent({
+        userId: USER_ID_TEXT,
+        eventType: "task_reset",
+        platform: platformKey,
+        eventData: {
+          result,
+        },
+      });
 
       setResetMessage(
         `Задание ID ${result} сброшено, вы можете взять новое задание`,
@@ -909,6 +953,12 @@ const progressMeta = useMemo(() => {
 
       setSubmitResultId(String(data.resultId));
       setStepState("reviewSubmitted");
+
+      void trackEvent({
+        userId: USER_ID_TEXT,
+        eventType: "task_submit",
+        platform: platformKey,
+      });
     } catch (error) {
       console.error(error);
       setModalMessage("Ошибка при отправке на модерацию");
@@ -965,6 +1015,7 @@ const progressMeta = useMemo(() => {
 
   return (
     <div className="min-h-screen bg-[#f5f5f5] px-4 py-5 sm:px-6 sm:py-8">
+      <TaskAnalytics userId={USER_ID_TEXT} platform={platformKey} />
       <div className="mx-auto max-w-4xl">
         <div className="mb-5 flex items-start justify-between gap-4 sm:mb-6">
           <div>
