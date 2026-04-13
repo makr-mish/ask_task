@@ -1149,7 +1149,7 @@ export default function DashboardPage() {
                   rel="noopener noreferrer"
                   className="inline-flex h-12 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 font-semibold text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition hover:bg-slate-50"
                 >
-                  Написать напрямую в поддержку TG
+                  Написать напрямую в поддержку телеграм
                 </a>
 
                 <button
