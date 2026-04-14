@@ -9,15 +9,84 @@ declare global {
   }
 }
 
+type ActivityItem = {
+  text: string;
+  reward: number;
+};
+
+type ActivityToast = {
+  id: number;
+  userId: number;
+  text: string;
+  reward: number;
+  isVisible: boolean;
+};
+
+const ACTIVITY_ITEMS: ActivityItem[] = [
+  { text: 'опубликовал отзыв на "Доске объявлений"', reward: 200 },
+  { text: "оставил отзыв в Яндекс Картах", reward: 130 },
+  { text: "оставил отзыв в Яндекс Браузере", reward: 100 },
+  { text: "оставил отзыв в Яндекс Услугах", reward: 100 },
+  { text: "оставил отзыв в Google Картах", reward: 100 },
+  { text: "оставил отзыв ВКонтакте", reward: 50 },
+  { text: "оставил отзыв на Flamp", reward: 50 },
+  { text: "оставил отзыв на Banki.ru", reward: 50 },
+  { text: "оставил отзыв на Yell", reward: 50 },
+  { text: "оставил отзыв на Dream Job", reward: 50 },
+  { text: "оставил отзыв на ProDoctorov", reward: 50 },
+  { text: "оставил отзыв в Google Play", reward: 50 },
+  { text: "оставил отзыв в 2GIS", reward: 30 },
+  { text: "оставил отзыв на Zoon", reward: 50 },
+  { text: "оставил отзыв на Otzovik", reward: 50 },
+
+  { text: "выполнил активность: навигация", reward: 6 },
+  { text: "выполнил активность: посещение", reward: 5 },
+  { text: "выполнил активность: оценки", reward: 5 },
+  { text: "выполнил активность: лайки", reward: 2 },
+  { text: "выполнил активность: дизлайки", reward: 2 },
+  { text: "выполнил активность: подписки", reward: 2 },
+  { text: "выполнил активность: бусты", reward: 5 },
+  { text: "выполнил активность: комментарии", reward: 5 },
+  { text: "выполнил активность: голосование", reward: 2 },
+  { text: "выполнил активность: переписка", reward: 5 },
+];
+
+function randomInt(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function createRandomToast(previousText?: string): ActivityToast {
+  let item = ACTIVITY_ITEMS[randomInt(0, ACTIVITY_ITEMS.length - 1)];
+
+  if (ACTIVITY_ITEMS.length > 1 && previousText) {
+    let attempts = 0;
+    while (item.text === previousText && attempts < 10) {
+      item = ACTIVITY_ITEMS[randomInt(0, ACTIVITY_ITEMS.length - 1)];
+      attempts += 1;
+    }
+  }
+
+  return {
+    id: Date.now() + Math.floor(Math.random() * 100000),
+    userId: randomInt(1000, 9999),
+    text: item.text,
+    reward: item.reward,
+    isVisible: true,
+  };
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const telegramModalRef = useRef<HTMLDivElement>(null);
+  const notificationsTimeoutRef = useRef<number | null>(null);
+  const swapTimeoutRef = useRef<number | null>(null);
 
   const [loaded, setLoaded] = useState(false);
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
   const [telegramModalOpen, setTelegramModalOpen] = useState(false);
+  const [activityToast, setActivityToast] = useState<ActivityToast | null>(null);
 
   useEffect(() => {
     const tgUser = localStorage.getItem("tg_user");
@@ -27,6 +96,50 @@ export default function LoginPage() {
       router.replace("/dashboard");
     }
   }, [router]);
+
+  useEffect(() => {
+    setActivityToast(createRandomToast());
+  }, []);
+
+  useEffect(() => {
+    if (!activityToast) return;
+
+    let cancelled = false;
+
+    const scheduleNext = () => {
+      const delay = randomInt(1000, 8000);
+
+      notificationsTimeoutRef.current = window.setTimeout(() => {
+        if (cancelled) return;
+
+        setActivityToast((prev) => {
+          if (!prev) return prev;
+          return { ...prev, isVisible: false };
+        });
+
+        swapTimeoutRef.current = window.setTimeout(() => {
+          if (cancelled) return;
+
+          setActivityToast((prev) => createRandomToast(prev?.text));
+          scheduleNext();
+        }, 450);
+      }, delay);
+    };
+
+    scheduleNext();
+
+    return () => {
+      cancelled = true;
+
+      if (notificationsTimeoutRef.current) {
+        window.clearTimeout(notificationsTimeoutRef.current);
+      }
+
+      if (swapTimeoutRef.current) {
+        window.clearTimeout(swapTimeoutRef.current);
+      }
+    };
+  }, [activityToast?.id]);
 
   useEffect(() => {
     window.onTelegramAuth = (user) => {
@@ -127,7 +240,34 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-transparent px-4 py-4 sm:px-6">
       <div className="mx-auto flex min-h-[calc(100vh-2rem)] w-full max-w-md items-center">
-        <section className="w-full rounded-[28px] border border-white/70 bg-white/88 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.07)] backdrop-blur-xl sm:p-6">
+        <section className="relative w-full rounded-[28px] border border-white/70 bg-white/88 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.07)] backdrop-blur-xl sm:p-6">
+          <div className="mb-5 min-h-[84px]">
+            {activityToast && (
+              <div
+                key={activityToast.id}
+                className={[
+                  "rounded-2xl border border-slate-200/80 bg-white/95 px-4 py-3 shadow-[0_10px_28px_rgba(15,23,42,0.10)] backdrop-blur-md",
+                  activityToast.isVisible
+                    ? "animate-[activityToastIn_0.45s_ease_forwards]"
+                    : "animate-[activityToastOut_0.45s_ease_forwards]",
+                ].join(" ")}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0 text-[13px] font-medium leading-5 text-slate-700">
+                    <span className="font-semibold text-slate-900">
+                      Пользователь ID {activityToast.userId}
+                    </span>{" "}
+                    {activityToast.text}
+                  </div>
+
+                  <div className="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-[13px] font-bold text-emerald-600">
+                    +{activityToast.reward} ₽
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="mb-5">
             <div className="inline-flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-[12px] font-semibold text-slate-700 shadow-[0_6px_18px_rgba(15,23,42,0.05)]">
               ASK TASK
