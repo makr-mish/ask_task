@@ -113,9 +113,16 @@ export default async function AdminPage({
   const dateTo = normalizeDate(resolvedSearchParams.dateTo);
   const platform = normalizeDate(resolvedSearchParams.platform);
 
-  const filters: string[] = [];
-  const params: Array<string> = [];
+ const filters: string[] = [];
+const params: Array<string> = [];
 
+const hasDateFilter = Boolean(dateFrom || dateTo);
+
+// Если даты не выбраны вручную — показываем только сегодня
+if (!hasDateFilter) {
+  filters.push("created_at >= CURDATE()");
+  filters.push("created_at < CURDATE() + INTERVAL 1 DAY");
+} else {
   if (dateFrom) {
     filters.push("created_at >= ?");
     params.push(`${dateFrom} 00:00:00`);
@@ -125,13 +132,14 @@ export default async function AdminPage({
     filters.push("created_at <= ?");
     params.push(`${dateTo} 23:59:59`);
   }
+}
 
-  if (platform) {
-    filters.push("platform = ?");
-    params.push(platform);
-  }
+if (platform) {
+  filters.push("platform = ?");
+  params.push(platform);
+}
 
-  const baseWhere = buildWhere(filters);
+const baseWhere = buildWhere(filters);
 
   const [platformOptionsRows] = await db.query(
     `

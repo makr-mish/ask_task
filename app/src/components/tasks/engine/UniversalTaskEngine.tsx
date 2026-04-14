@@ -663,25 +663,27 @@ const progressMeta = useMemo(() => {
 
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      if (platformKey === "yandex-browser") {
-        const browserTaskText = String(
-          feedbackData?.raw?.raw?.link_post ??
-            feedbackData?.raw?.data?.link_post ??
-            feedbackData?.raw?.link_post ??
-            "Откройте карточку организации в Яндекс Браузере и выполните задание.",
-        ).trim();
+if (platformKey === "yandex-browser") {
+  const taskData = await getTask(platformKey, {
+    userIdText: USER_ID_TEXT,
+    fb_id: feedbackData.fbId,
+  });
 
-        setTaskText(browserTaskText);
-        setStepState("taskReady");
+  if (!taskData?.taskText || !taskData.taskText.trim()) {
+    throw new Error("Не удалось получить задание");
+  }
 
-        void trackEvent({
-          userId: USER_ID_TEXT,
-          eventType: "task_assigned",
-          platform: platformKey,
-        });
+  setTaskText(taskData.taskText);
+  setStepState("taskReady");
 
-        return;
-      }
+  void trackEvent({
+    userId: USER_ID_TEXT,
+    eventType: "task_assigned",
+    platform: platformKey,
+  });
+
+  return;
+}
 
       const taskData = await getTask(platformKey, {
         userIdText: USER_ID_TEXT,
