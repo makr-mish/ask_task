@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { trackEvent } from "@/lib/analytics";
 import TaskAnalytics from "@/components/TaskAnalytics";
@@ -45,6 +45,34 @@ type PreviewModalProps = {
 type TaskProgressCardProps = {
   percent: number;
   currentLabel: string;
+};
+
+type SavedTaskSession = {
+  version: 1;
+  platformKey: string;
+  userIdText: string;
+  savedAt: number;
+  assignedAt: number;
+  expiresAt: number;
+  stepState: EngineStepState;
+  accountName: string;
+  gender: string;
+  region: string;
+  feedbackId: string | null;
+  fbId: string | null;
+  siteId: string | null;
+  taskText: string;
+  phoneFileName: string;
+  phoneReason: string;
+  siteValue: string;
+  questionTexts: Record<string, string>;
+  questionAnswers: Record<string, YesNoAnswer>;
+  timerSeconds: number;
+  moderationDeadlineAt: number | null;
+  reviewText: string;
+  reviewPhoto: string;
+  dreamJobNote: string;
+  submitResultId: string | null;
 };
 
 function TaskProgressCard({ percent, currentLabel }: TaskProgressCardProps) {
@@ -178,6 +206,59 @@ function PreviewModal({
       </div>
     </div>
   );
+}
+
+const TASK_SESSION_TTL_MS = 60 * 60 * 1000;
+
+function getTaskSessionStorageKey(userIdText: string, platformKey: string) {
+  return `task_session:${userIdText}:${platformKey}`;
+}
+
+function readSavedTaskSession(
+  userIdText: string,
+  platformKey: string,
+): SavedTaskSession | null {
+  if (typeof window === "undefined") return null;
+
+  const raw = window.localStorage.getItem(
+    getTaskSessionStorageKey(userIdText, platformKey),
+  );
+
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as SavedTaskSession;
+
+    if (
+      !parsed ||
+      parsed.platformKey !== platformKey ||
+      parsed.userIdText !== userIdText ||
+      !parsed.expiresAt ||
+      Date.now() > parsed.expiresAt
+    ) {
+      window.localStorage.removeItem(getTaskSessionStorageKey(userIdText, platformKey));
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    window.localStorage.removeItem(getTaskSessionStorageKey(userIdText, platformKey));
+    return null;
+  }
+}
+
+function writeSavedTaskSession(session: SavedTaskSession) {
+  if (typeof window === "undefined") return;
+
+  window.localStorage.setItem(
+    getTaskSessionStorageKey(session.userIdText, session.platformKey),
+    JSON.stringify(session),
+  );
+}
+
+function clearSavedTaskSession(userIdText: string, platformKey: string) {
+  if (typeof window === "undefined" || !userIdText) return;
+  window.localStorage.removeItem(getTaskSessionStorageKey(userIdText, platformKey));
 }
 
 function resetEngineState(setters: {
@@ -342,6 +423,11 @@ export default function UniversalTaskEngine({
   const [siteId, setSiteId] = useState<string | null>(null);
   const [taskText, setTaskText] = useState("");
   const [resetMessage, setResetMessage] = useState("");
+  const [savedTaskPrompt, setSavedTaskPrompt] = useState<SavedTaskSession | null>(null);
+  const [assignedAt, setAssignedAt] = useState<number | null>(null);
+  const [expiresAt, setExpiresAt] = useState<number | null>(null);
+  const [moderationDeadlineAt, setModerationDeadlineAt] = useState<number | null>(null);
+  const moderationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [phoneFileName, setPhoneFileName] = useState("");
   const [phoneReason, setPhoneReason] = useState("");
@@ -399,6 +485,142 @@ export default function UniversalTaskEngine({
   const USER_ID_TEXT = user?.USER_ID_TEXT || "";
   const profileName = user?.first_name || "—";
   const telegramUsername = user?.username || "—";
+
+  useEffect(() => {
+    if (!USER_ID_TEXT) return;
+
+    const saved = readSavedTaskSession(USER_ID_TEXT, platformKey);
+    setSavedTaskPrompt(saved);
+  }, [USER_ID_TEXT, platformKey]);
+
+  useEffect(() => {
+    if (!USER_ID_TEXT) return;
+
+    const shouldPersist =
+      !!feedbackId &&
+      !!taskText.trim() &&
+      stepState !== "form" &&
+      stepState !== "loadingTask" &&
+      stepState !== "reviewSubmitted";
+
+if (!shouldPersist) {
+  if (stepState === "reviewSubmitted") {
+    clearSavedTaskSession(USER_ID_TEXT, platformKey);
+  }
+  return;
+}
+
+    const nextAssignedAt = assignedAt ?? Date.now();
+    const nextExpiresAt = expiresAt ?? nextAssignedAt + TASK_SESSION_TTL_MS;
+
+    if (nextAssignedAt !== assignedAt) {
+      setAssignedAt(nextAssignedAt);
+    }
+
+    if (nextExpiresAt !== expiresAt) {
+      setExpiresAt(nextExpiresAt);
+    }
+
+    if (Date.now() > nextExpiresAt) {
+      clearSavedTaskSession(USER_ID_TEXT, platformKey);
+      return;
+    }
+
+    writeSavedTaskSession({
+      version: 1,
+      platformKey,
+      userIdText: USER_ID_TEXT,
+      savedAt: Date.now(),
+      assignedAt: nextAssignedAt,
+      expiresAt: nextExpiresAt,
+      stepState,
+      accountName,
+      gender,
+      region,
+      feedbackId,
+      fbId,
+      siteId,
+      taskText,
+      phoneFileName,
+      phoneReason,
+      siteValue,
+      questionTexts,
+      questionAnswers,
+      timerSeconds,
+      moderationDeadlineAt,
+      reviewText,
+      reviewPhoto,
+      dreamJobNote,
+      submitResultId,
+    });
+  }, [
+    USER_ID_TEXT,
+    platformKey,
+    stepState,
+    feedbackId,
+    fbId,
+    siteId,
+    taskText,
+    accountName,
+    gender,
+    region,
+    phoneFileName,
+    phoneReason,
+    siteValue,
+    questionTexts,
+    questionAnswers,
+    timerSeconds,
+    moderationDeadlineAt,
+    reviewText,
+    reviewPhoto,
+    dreamJobNote,
+    submitResultId,
+    assignedAt,
+    expiresAt,
+  ]);
+
+  useEffect(() => {
+    if (moderationIntervalRef.current) {
+      clearInterval(moderationIntervalRef.current);
+      moderationIntervalRef.current = null;
+    }
+
+    if (stepState !== "moderationTimer" || !moderationDeadlineAt) {
+      return;
+    }
+
+    const tick = () => {
+      const remainingSeconds = Math.max(
+        0,
+        Math.ceil((moderationDeadlineAt - Date.now()) / 1000),
+      );
+
+      setTimerSeconds(remainingSeconds);
+
+      if (remainingSeconds <= 0) {
+        if (moderationIntervalRef.current) {
+          clearInterval(moderationIntervalRef.current);
+          moderationIntervalRef.current = null;
+        }
+
+        const afterTimer = getNextPlatformStep(platformKey, "moderationTimer");
+        if (afterTimer) {
+          setModerationDeadlineAt(null);
+          setStepState(afterTimer as EngineStepState);
+        }
+      }
+    };
+
+    tick();
+    moderationIntervalRef.current = setInterval(tick, 1000);
+
+    return () => {
+      if (moderationIntervalRef.current) {
+        clearInterval(moderationIntervalRef.current);
+        moderationIntervalRef.current = null;
+      }
+    };
+  }, [platformKey, stepState, moderationDeadlineAt]);
 
   const controlQuestionIds = getPlatformControlQuestionIds(platformKey);
   const requiresRegion = true;
@@ -576,26 +798,10 @@ const progressMeta = useMemo(() => {
     }
 
     if (next === "moderationTimer") {
-      setStepState("moderationTimer");
       const startSeconds = getPlatformTimerSeconds(platformKey);
       setTimerSeconds(startSeconds);
-
-      let seconds = startSeconds;
-
-      const interval = setInterval(() => {
-        seconds -= 1;
-        setTimerSeconds(seconds);
-
-        if (seconds <= 0) {
-          clearInterval(interval);
-
-          const afterTimer = getNextPlatformStep(platformKey, "moderationTimer");
-          if (afterTimer) {
-            setStepState(afterTimer as EngineStepState);
-          }
-        }
-      }, 1000);
-
+      setModerationDeadlineAt(Date.now() + startSeconds * 1000);
+      setStepState("moderationTimer");
       return;
     }
 
@@ -663,27 +869,28 @@ const progressMeta = useMemo(() => {
 
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-if (platformKey === "yandex-browser") {
-  const taskData = await getTask(platformKey, {
-    userIdText: USER_ID_TEXT,
-    fb_id: feedbackData.fbId,
-  });
+      if (platformKey === "yandex-browser") {
+        const browserTaskText = String(
+          feedbackData?.raw?.raw?.link_post ??
+            feedbackData?.raw?.data?.link_post ??
+            feedbackData?.raw?.link_post ??
+            "Откройте карточку организации в Яндекс Браузере и выполните задание.",
+        ).trim();
 
-  if (!taskData?.taskText || !taskData.taskText.trim()) {
-    throw new Error("Не удалось получить задание");
-  }
+        setTaskText(browserTaskText);
+        setAssignedAt(Date.now());
+        setExpiresAt(Date.now() + TASK_SESSION_TTL_MS);
+        setSavedTaskPrompt(null);
+        setStepState("taskReady");
 
-  setTaskText(taskData.taskText);
-  setStepState("taskReady");
+        void trackEvent({
+          userId: USER_ID_TEXT,
+          eventType: "task_assigned",
+          platform: platformKey,
+        });
 
-  void trackEvent({
-    userId: USER_ID_TEXT,
-    eventType: "task_assigned",
-    platform: platformKey,
-  });
-
-  return;
-}
+        return;
+      }
 
       const taskData = await getTask(platformKey, {
         userIdText: USER_ID_TEXT,
@@ -695,6 +902,9 @@ if (platformKey === "yandex-browser") {
       }
 
       setTaskText(taskData.taskText);
+      setAssignedAt(Date.now());
+      setExpiresAt(Date.now() + TASK_SESSION_TTL_MS);
+      setSavedTaskPrompt(null);
       setStepState("taskReady");
 
       void trackEvent({
@@ -722,6 +932,8 @@ if (platformKey === "yandex-browser") {
 
       setModalMessage(message);
       setIsModalOpen(true);
+      setAssignedAt(null);
+      setExpiresAt(null);
       setStepState("form");
     } finally {
       setLoading(false);
@@ -767,6 +979,12 @@ if (platformKey === "yandex-browser") {
       setTimeout(() => {
         setResetMessage("");
       }, 10000);
+
+      clearSavedTaskSession(USER_ID_TEXT, platformKey);
+      setSavedTaskPrompt(null);
+      setAssignedAt(null);
+      setExpiresAt(null);
+      setModerationDeadlineAt(null);
 
       if (options?.stayHere) {
         resetEngineState({
@@ -836,7 +1054,10 @@ if (platformKey === "yandex-browser") {
     }
 
     if (firstStep === "moderationTimer") {
-      void goToNextStep("controlQuestions");
+      const startSeconds = getPlatformTimerSeconds(platformKey);
+      setTimerSeconds(startSeconds);
+      setModerationDeadlineAt(Date.now() + startSeconds * 1000);
+      setStepState("moderationTimer");
       return;
     }
 
@@ -954,6 +1175,11 @@ if (platformKey === "yandex-browser") {
       });
 
       setSubmitResultId(String(data.resultId));
+      clearSavedTaskSession(USER_ID_TEXT, platformKey);
+      setSavedTaskPrompt(null);
+      setAssignedAt(null);
+      setExpiresAt(null);
+      setModerationDeadlineAt(null);
       setStepState("reviewSubmitted");
 
       void trackEvent({
@@ -969,6 +1195,47 @@ if (platformKey === "yandex-browser") {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleResumeSavedTask = () => {
+    if (!savedTaskPrompt) return;
+
+    if (Date.now() > savedTaskPrompt.expiresAt) {
+      clearSavedTaskSession(USER_ID_TEXT, platformKey);
+      setSavedTaskPrompt(null);
+      return;
+    }
+
+    setAccountName(savedTaskPrompt.accountName || "");
+    setGender(savedTaskPrompt.gender || "");
+    setRegion(savedTaskPrompt.region || "");
+    setFeedbackId(savedTaskPrompt.feedbackId);
+    setFbId(savedTaskPrompt.fbId);
+    setSiteId(savedTaskPrompt.siteId);
+    setTaskText(savedTaskPrompt.taskText || "");
+    setPhoneFileName(savedTaskPrompt.phoneFileName || "");
+    setPhoneReason(savedTaskPrompt.phoneReason || "");
+    setSiteValue(savedTaskPrompt.siteValue || "");
+    setQuestionTexts(savedTaskPrompt.questionTexts || {});
+    setQuestionAnswers(savedTaskPrompt.questionAnswers || {});
+    setTimerSeconds(savedTaskPrompt.timerSeconds || getPlatformTimerSeconds(platformKey));
+    setModerationDeadlineAt(savedTaskPrompt.moderationDeadlineAt);
+    setReviewText(savedTaskPrompt.reviewText || "");
+    setReviewPhoto(savedTaskPrompt.reviewPhoto || "");
+    setDreamJobNote(savedTaskPrompt.dreamJobNote || "");
+    setSubmitResultId(savedTaskPrompt.submitResultId);
+    setAssignedAt(savedTaskPrompt.assignedAt);
+    setExpiresAt(savedTaskPrompt.expiresAt);
+    setStepState(savedTaskPrompt.stepState);
+    setSavedTaskPrompt(null);
+  };
+
+  const handleDismissSavedTask = () => {
+    clearSavedTaskSession(USER_ID_TEXT, platformKey);
+    setSavedTaskPrompt(null);
+    setAssignedAt(null);
+    setExpiresAt(null);
+    setModerationDeadlineAt(null);
   };
 
   const showTaskHeader =
@@ -1140,95 +1407,123 @@ if (platformKey === "yandex-browser") {
               )}
             </div>
           )}
-
-          <div
-            className={`rounded-2xl border p-4 transition sm:p-6 ${
-              stepState !== "form" ? "pointer-events-none opacity-50" : ""
-            }`}
-          >
-            <div className="space-y-4 sm:space-y-5">
-              <div>
-                <label className="mb-2 block text-base text-gray-600 sm:text-lg">
-                  Имя аккаунта
-                </label>
-                <input
-                  value={accountName}
-                  onChange={(e) => setAccountName(e.target.value)}
-                  placeholder="Введите имя аккаунта"
-                  className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-lg outline-none sm:px-5 sm:py-4 sm:text-xl"
-                />
-              </div>
-
-              {showsGender && (
+{stepState === "form" && savedTaskPrompt && (
+  <div className="mb-6 rounded-[28px] border border-yellow-300 bg-yellow-100 p-5 sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <label className="mb-2 block text-base text-gray-600 sm:text-lg">
-                    Пол аккаунта
-                  </label>
-                  <select
-                    value={gender}
-                    onChange={(e) => setGender(e.target.value)}
-                    className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-lg outline-none sm:px-5 sm:py-4 sm:text-xl"
+                  <h3 className="text-[22px] font-semibold text-black">
+                    Продолжить работу с заданием?
+                  </h3>
+                  <p className="mt-2 text-[15px] leading-6 text-[#4b5563] sm:text-[16px]">
+                    Мы нашли незавершённое задание по площадке {platform.label}. Оно доступно для продолжения в течение 60 минут с момента получения.
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:min-w-[260px]">
+                  <button
+                    onClick={handleResumeSavedTask}
+                    className="rounded-2xl bg-black px-6 py-3 text-white"
                   >
-                    <option value="">Выберите пол аккаунта</option>
-                    <option value="Мужской">Мужской</option>
-                    <option value="Женский">Женский</option>
-                  </select>
+                    Продолжить задание
+                  </button>
+
+                  <button
+                    onClick={handleDismissSavedTask}
+                    className="rounded-2xl border border-gray-300 bg-white px-6 py-3 text-black"
+                  >
+                    Взять новое задание
+                  </button>
                 </div>
-              )}
-
-              {requiresRegion && (
-                <div>
-                  <div className="mb-2 flex items-center gap-3">
-                    <label className="block text-base text-gray-600 sm:text-lg">
-                      Номер региона
-                    </label>
-
-                    {!!previewImages.regionHelpImage && (
-                      <button
-                        type="button"
-                        onClick={() => setRegionHelpOpen(true)}
-                        className="text-sm font-medium text-blue-600 underline hover:text-blue-700"
-                      >
-                        Какой у меня регион?
-                      </button>
-                    )}
-                  </div>
-
-                  <input
-                    value={region}
-                    onChange={(e) => validateRegion(e.target.value)}
-                    placeholder="Введите номер региона"
-                    className={`w-full rounded-2xl border px-4 py-3 text-lg outline-none sm:px-5 sm:py-4 sm:text-xl ${
-                      regionError ? "border-red-400" : "border-gray-300"
-                    }`}
-                  />
-
-                  {regionError && (
-                    <p className="mt-2 text-sm font-medium text-red-600">
-                      {regionError}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <button
-                onClick={handleGetFeedbackId}
-                disabled={
-                  loading ||
-                  stepState !== "form" ||
-                  (requiresRegion && !!regionError) ||
-                  !accountName.trim() ||
-                  !gender ||
-                  !region.trim()
-                }
-                className="w-full rounded-2xl bg-black px-6 py-4 text-lg text-white disabled:opacity-70 sm:text-xl"
-              >
-                {loading && stepState === "form"
-                  ? "Получаем задание..."
-                  : "Получить задание"}
-              </button>
+              </div>
             </div>
+          )}
+
+{stepState === "form" && !savedTaskPrompt && !fbId && (
+  <div className="rounded-2xl border p-4 transition sm:p-6">
+    <div className="space-y-4 sm:space-y-5">
+      <div>
+        <label className="mb-2 block text-base text-gray-600 sm:text-lg">
+          Имя аккаунта
+        </label>
+        <input
+          value={accountName}
+          onChange={(e) => setAccountName(e.target.value)}
+          placeholder="Введите имя аккаунта"
+          className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-lg outline-none sm:px-5 sm:py-4 sm:text-xl"
+        />
+      </div>
+
+      {showsGender && (
+        <div>
+          <label className="mb-2 block text-base text-gray-600 sm:text-lg">
+            Пол аккаунта
+          </label>
+          <select
+            value={gender}
+            onChange={(e) => setGender(e.target.value)}
+            className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-lg outline-none sm:px-5 sm:py-4 sm:text-xl"
+          >
+            <option value="">Выберите пол аккаунта</option>
+            <option value="Мужской">Мужской</option>
+            <option value="Женский">Женский</option>
+          </select>
+        </div>
+      )}
+
+      {requiresRegion && (
+        <div>
+          <div className="mb-2 flex items-center gap-3">
+            <label className="block text-base text-gray-600 sm:text-lg">
+              Номер региона
+            </label>
+
+            {!!previewImages.regionHelpImage && (
+              <button
+                type="button"
+                onClick={() => setRegionHelpOpen(true)}
+                className="text-sm font-medium text-blue-600 underline hover:text-blue-700"
+              >
+                Какой у меня регион?
+              </button>
+            )}
           </div>
+
+          <input
+            value={region}
+            onChange={(e) => validateRegion(e.target.value)}
+            placeholder="Введите номер региона"
+            className={`w-full rounded-2xl border px-4 py-3 text-lg outline-none sm:px-5 sm:py-4 sm:text-xl ${
+              regionError ? "border-red-400" : "border-gray-300"
+            }`}
+          />
+
+          {regionError && (
+            <p className="mt-2 text-sm font-medium text-red-600">
+              {regionError}
+            </p>
+          )}
+        </div>
+      )}
+
+      <button
+        onClick={handleGetFeedbackId}
+        disabled={
+          loading ||
+          stepState !== "form" ||
+          (requiresRegion && !!regionError) ||
+          !accountName.trim() ||
+          !gender ||
+          !region.trim()
+        }
+        className="w-full rounded-2xl bg-black px-6 py-4 text-lg text-white disabled:opacity-70 sm:text-xl"
+      >
+        {loading && stepState === "form"
+          ? "Получаем задание..."
+          : "Получить задание"}
+      </button>
+    </div>
+  </div>
+)}
 
           {stepState === "loadingTask" && (
             <LoadingStatusCard

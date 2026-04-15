@@ -76,6 +76,7 @@ export type GetFeedbackPayload = {
 export type GetTaskPayload = {
   userIdText: string;
   fb_id: string;
+  id_yandex_browser?: string;
 };
 
 export type GetControlQuestionPayload = {

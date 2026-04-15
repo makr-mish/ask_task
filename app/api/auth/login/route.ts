@@ -16,6 +16,10 @@ const pool = mysql
   .promise();
 
 export async function POST(req: Request) {
+  const FALLBACK_LOGIN = process.env.FALLBACK_LOGIN;
+  const FALLBACK_PASSWORD = process.env.FALLBACK_PASSWORD;
+  const FALLBACK_USER_ID = Number(process.env.FALLBACK_USER_ID || -1);
+
   try {
     const { login, password } = await req.json();
 
@@ -26,32 +30,53 @@ export async function POST(req: Request) {
       );
     }
 
-    const [rows]: any = await pool.query(
-      "SELECT * FROM users WHERE email = ?",
-      [login]
-    );
+    try {
+      // 🔹 Пытаемся через БД
+      const [rows]: any = await pool.query(
+        "SELECT * FROM users WHERE email = ?",
+        [login]
+      );
 
-    if (rows.length === 0) {
+      if (rows.length === 0) {
+        return NextResponse.json(
+          { error: "Пользователь не найден" },
+          { status: 400 }
+        );
+      }
+
+      const user = rows[0];
+      const isValid = await bcrypt.compare(password, user.password);
+
+      if (!isValid) {
+        return NextResponse.json(
+          { error: "Неверный пароль" },
+          { status: 400 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        userId: user.id,
+      });
+
+    } catch (dbError) {
+      console.error("DB ERROR → используем fallback:", dbError);
+
+      // 🔥 fallback логин
+      if (login === FALLBACK_LOGIN && password === FALLBACK_PASSWORD) {
+        return NextResponse.json({
+          success: true,
+          userId: FALLBACK_USER_ID,
+          fallback: true,
+        });
+      }
+
       return NextResponse.json(
-        { error: "Пользователь не найден" },
-        { status: 400 }
+        { error: "База недоступна и fallback не подошёл" },
+        { status: 500 }
       );
     }
 
-    const user = rows[0];
-    const isValid = await bcrypt.compare(password, user.password);
-
-    if (!isValid) {
-      return NextResponse.json(
-        { error: "Неверный пароль" },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      userId: user.id,
-    });
   } catch (error) {
     console.error("LOGIN ERROR:", error);
 

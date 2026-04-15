@@ -29,6 +29,82 @@ type RippleState = {
   key: number;
 };
 
+type SavedTaskSession = {
+  version?: number;
+  platformKey: string;
+  userIdText: string;
+  expiresAt: number;
+  assignedAt?: number;
+  stepState?: string;
+};
+
+const TASK_SESSION_TTL_MS = 60 * 60 * 1000;
+
+function getTaskSessionStorageKey(userIdText: string, platformKey: string) {
+  return `task_session:${userIdText}:${platformKey}`;
+}
+
+function readSavedTaskSession(
+  userIdText: string,
+  platformKey: string,
+): SavedTaskSession | null {
+  if (typeof window === "undefined") return null;
+
+  const storageKey = getTaskSessionStorageKey(userIdText, platformKey);
+  const raw = window.localStorage.getItem(storageKey);
+
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as SavedTaskSession;
+
+    const maxExpiresAt =
+      typeof parsed?.assignedAt === "number"
+        ? parsed.assignedAt + TASK_SESSION_TTL_MS
+        : 0;
+
+    const actualExpiresAt = Math.min(
+      Number(parsed?.expiresAt ?? 0),
+      maxExpiresAt || Number(parsed?.expiresAt ?? 0),
+    );
+
+    if (
+      !parsed ||
+      parsed.platformKey !== platformKey ||
+      parsed.userIdText !== userIdText ||
+      !actualExpiresAt ||
+      Date.now() > actualExpiresAt
+    ) {
+      window.localStorage.removeItem(storageKey);
+      return null;
+    }
+
+    return {
+      ...parsed,
+      expiresAt: actualExpiresAt,
+    };
+  } catch {
+    window.localStorage.removeItem(storageKey);
+    return null;
+  }
+}
+
+function getActiveTaskSessions(userIdText: string) {
+  return PLATFORMS.reduce<Record<string, SavedTaskSession>>((acc, platform) => {
+    const saved = readSavedTaskSession(userIdText, platform.slug);
+
+    if (saved) {
+      acc[platform.slug] = saved;
+    }
+
+    return acc;
+  }, {});
+}
+
+function getRemainingTaskMinutes(expiresAt: number) {
+  return Math.max(0, Math.ceil((expiresAt - Date.now()) / 60000));
+}
+
 export default function DashboardPage() {
   const [user, setUser] = useState<AppUser | null>(null);
   const [pageVisible, setPageVisible] = useState(false);
@@ -60,6 +136,10 @@ export default function DashboardPage() {
   const [supportModalOpen, setSupportModalOpen] = useState(false);
 
   const [botModalOpen, setBotModalOpen] = useState<"tg" | "max" | null>(null);
+  const [activeTaskSessions, setActiveTaskSessions] = useState<
+    Record<string, SavedTaskSession>
+  >({});
+  const [, setTaskTimerTick] = useState(0);
 
   const [reviewsRipple, setReviewsRipple] = useState<RippleState | null>(null);
   const [activitiesRipple, setActivitiesRipple] = useState<RippleState | null>(
@@ -221,6 +301,10 @@ export default function DashboardPage() {
     setActivitiesExpanded((prev) => !prev);
   };
 
+  const refreshActiveTaskSessions = (userIdText: string) => {
+    setActiveTaskSessions(getActiveTaskSessions(userIdText));
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("tg_user");
     localStorage.removeItem("user_id");
@@ -269,6 +353,39 @@ export default function DashboardPage() {
 
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    refreshActiveTaskSessions(user.USER_ID_TEXT);
+
+    const handleStorageSync = () => {
+      refreshActiveTaskSessions(user.USER_ID_TEXT);
+    };
+
+    window.addEventListener("storage", handleStorageSync);
+    window.addEventListener("focus", handleStorageSync);
+    document.addEventListener("visibilitychange", handleStorageSync);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageSync);
+      window.removeEventListener("focus", handleStorageSync);
+      document.removeEventListener("visibilitychange", handleStorageSync);
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const intervalId = window.setInterval(() => {
+      refreshActiveTaskSessions(user.USER_ID_TEXT);
+      setTaskTimerTick((prev) => prev + 1);
+    }, 15000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
@@ -535,6 +652,11 @@ export default function DashboardPage() {
                           {visiblePlatforms.map((platform) => {
                             const freeValue = freeCounts[platform.key] ?? "—";
                             const cardStyle = getTaskCardStyle(freeValue);
+                            const activeTask = activeTaskSessions[platform.slug];
+                            const isResumeTask = Boolean(activeTask);
+                            const remainingTaskMinutes = activeTask
+                              ? getRemainingTaskMinutes(activeTask.expiresAt)
+                              : 0;
 
                             const freeNum = Number(freeValue);
                             const isErrorState = freeValue === "Ошибка" || freeValue === "—";
@@ -542,13 +664,15 @@ export default function DashboardPage() {
                             const isAvitoDisabled = platform.label === "Авито";
                             const isDreamJobDisabled = platform.label === "Dream Job";
                             const isDisabledCard =
-                              isAvitoDisabled || isDreamJobDisabled || isZeroFree || isErrorState;
+                              isAvitoDisabled ||
+                              isDreamJobDisabled ||
+                              ((!isResumeTask && isZeroFree) || (!isResumeTask && isErrorState));
 
                             return (
                               <div
                                 key={platform.key}
                                 style={cardStyle}
-                                className={`rounded-[22px] border p-4 transition duration-300 sm:rounded-[24px] sm:p-5 ${
+                                className={`relative rounded-[22px] border p-4 transition duration-300 sm:rounded-[24px] sm:p-5 ${
                                   isDisabledCard
                                     ? "cursor-not-allowed opacity-70 grayscale-[0.2]"
                                     : "hover:-translate-y-[4px] hover:scale-[1.01] hover:shadow-[0_16px_34px_rgba(15,23,42,0.08)]"
@@ -560,16 +684,37 @@ export default function DashboardPage() {
                                     {platform.label}
                                   </div>
 
-                                  <div className="inline-flex w-fit min-w-[70px] items-center justify-center rounded-2xl border border-white/50 bg-gradient-to-br from-white/40 to-white/10 px-4 py-2 text-[15px] font-semibold tracking-tight text-slate-900 backdrop-blur-xl shadow-[0_10px_30px_rgba(15,23,42,0.15)] sm:text-base">
-                                    Оплата {platform.price} руб
+                                  <div className="flex flex-col items-end gap-2 self-start sm:self-auto">
+                                    {isResumeTask && (
+                                      <div className="inline-flex items-center justify-center rounded-full border border-yellow-300 bg-yellow-200 px-3 py-1 text-[12px] font-semibold text-slate-900 shadow-[0_8px_18px_rgba(234,179,8,0.16)] sm:text-[13px]">
+                                        Незавершённое задание
+                                      </div>
+                                    )}
+
+                                    <div className="inline-flex w-fit min-w-[70px] items-center justify-center rounded-2xl border border-white/50 bg-gradient-to-br from-white/40 to-white/10 px-4 py-2 text-[15px] font-semibold tracking-tight text-slate-900 backdrop-blur-xl shadow-[0_10px_30px_rgba(15,23,42,0.15)] sm:text-base">
+                                      Оплата {platform.price} руб
+                                    </div>
                                   </div>
                                 </div>
 
-                                <div className="mb-4 text-[16px] text-slate-700 sm:mb-5 sm:text-[17px]">
+                                <div className="mb-4 text-[16px] text-slate-700 sm:mb-3 sm:text-[17px]">
                                   Свободных отзывов: {freeCounts[platform.key] ?? "—"}
                                 </div>
 
-                                {isAvitoDisabled ? (
+                                {isResumeTask && (
+                                  <div className="mb-4 rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-[14px] font-medium text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] sm:mb-5 sm:text-[15px]">
+                                    Доступно ещё: <span className="font-bold text-slate-950">{remainingTaskMinutes} мин</span>
+                                  </div>
+                                )}
+
+                                {isResumeTask && platform.taskHref ? (
+                                  <Link
+                                    href={platform.taskHref}
+                                    className="inline-flex h-11 w-full items-center justify-center rounded-2xl border border-yellow-300 bg-yellow-200 px-5 text-[15px] font-semibold text-slate-950 shadow-[0_10px_24px_rgba(234,179,8,0.18)] transition hover:bg-yellow-300 active:scale-[0.98] sm:w-auto sm:text-base"
+                                  >
+                                    Продолжить работу с заданием
+                                  </Link>
+                                ) : isAvitoDisabled ? (
                                   <button
                                     disabled
                                     className="inline-flex h-11 w-full cursor-not-allowed items-center justify-center rounded-2xl bg-slate-200 px-5 text-[15px] font-medium text-slate-500 sm:w-auto sm:text-base"
@@ -809,129 +954,110 @@ export default function DashboardPage() {
             </section>
           </div>
 
-          <div className="space-y-4">
-            <div className="flex justify-center">
-              <section className="w-full rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,28,46,0.90),rgba(9,22,40,0.88))] px-5 py-4 text-white shadow-[0_18px_45px_rgba(2,6,23,0.18)] backdrop-blur-xl sm:px-8 sm:py-5">
-                <div className="flex items-start justify-between gap-3 sm:items-center sm:justify-center sm:gap-4">
-                  <h2 className="shrink-0 whitespace-nowrap text-[28px] font-semibold leading-none tracking-[-0.03em] text-white sm:text-[34px]">
-                    ASK TASK
-                  </h2>
-                  <div className="ml-auto inline-flex min-h-9 max-w-[190px] items-center justify-center rounded-full border border-white/10 bg-white/10 px-4 py-2 text-right text-[13px] font-semibold leading-tight text-white/85 shadow-[inset_0_1px_1px_rgba(255,255,255,0.08)] backdrop-blur-md sm:ml-0 sm:min-h-10 sm:max-w-none sm:px-5 sm:text-[14px]">
-                    Единый ID для всех платформ
+          <div className="grid gap-4 xl:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setBotModalOpen("tg")}
+              className="group relative overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(135deg,rgba(113,151,219,0.96),rgba(73,107,166,0.96))] px-5 py-5 text-left text-white shadow-[0_18px_40px_rgba(37,99,235,0.18)] transition hover:-translate-y-[2px] hover:shadow-[0_22px_46px_rgba(37,99,235,0.24)] sm:px-6 sm:py-5"
+            >
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.24),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02)_45%,rgba(255,255,255,0))]" />
+              <div className="relative z-10 flex h-full flex-col">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="hidden text-[14px] font-semibold text-white/75 sm:block">
+                      Быстрый доступ
+                    </div>
+                    <h3 className="mt-2 text-[28px] font-semibold leading-[1.02] tracking-[-0.03em] text-white sm:mt-3 sm:text-[30px]">
+                      Бот в Телеграм
+                    </h3>
+                  </div>
+
+                  <div className="flex shrink-0 items-center gap-2 pl-2 sm:gap-3 sm:pt-[2px]">
+                    <span className="max-w-[110px] text-right text-[13px] font-semibold leading-tight text-white/78 sm:max-w-none sm:whitespace-nowrap sm:text-[15px]">
+                      ASK TASK TG
+                    </span>
+                    <span className="flex h-14 w-14 items-center justify-center rounded-[18px] border border-white/10 bg-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.10)] backdrop-blur-md sm:h-16 sm:w-16">
+                      <img
+                        src="/Telegram.png"
+                        alt="Telegram"
+                        className="h-80 w-80 object-contain sm:h-10 sm:w-10"
+                      />
+                    </span>
                   </div>
                 </div>
 
-                <p className="mx-auto mt-4 max-w-4xl text-center text-[15px] leading-7 text-white/88 sm:mt-4 sm:text-[17px]">
-                  Мы сделали <span className="font-semibold text-white">единый ID</span> для работы с любой платформы: Веб-сайт, Телеграм бот и MAX бот. Для вас это единый личный кабинет с заданиями, где все синхронизировано.
-                </p>
-              </section>
-            </div>
+                <div className="mt-4 text-[15px] leading-7 text-white/88 sm:text-[17px]">
+                  <p className="hidden sm:block">
+                    Все задания для заработка уже доступны в телеграм боте.
+                  </p>
+                  <p className="sm:hidden">
+                    Те же задания для заработка доступны в Телеграм-боте.
+                  </p>
+                </div>
 
-            <div className="grid gap-4 xl:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => setBotModalOpen("tg")}
-                className="group relative overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(135deg,rgba(113,151,219,0.96),rgba(73,107,166,0.96))] px-5 py-5 text-left text-white shadow-[0_18px_40px_rgba(37,99,235,0.18)] transition hover:-translate-y-[2px] hover:shadow-[0_22px_46px_rgba(37,99,235,0.24)] sm:px-6 sm:py-5"
-              >
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.24),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02)_45%,rgba(255,255,255,0))]" />
-                <div className="relative z-10 flex h-full flex-col">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="hidden text-[14px] font-semibold text-white/75 sm:block">
-                        Быстрый доступ
-                      </div>
-                      <h3 className="mt-2 whitespace-nowrap text-[28px] font-semibold leading-[1.02] tracking-[-0.03em] text-white sm:mt-3 sm:text-[30px]">
-                        Бот в Телеграм
-                      </h3>
-                    </div>
-
-                    <div className="flex shrink-0 items-center gap-3 pl-2 sm:pt-[2px]">
-                      <span className="whitespace-nowrap text-[14px] font-semibold text-white/78 sm:text-[15px]">
-                        ASK TASK TG
-                      </span>
-                      <span className="flex h-12 w-12 items-center justify-center rounded-[16px] border border-white/10 bg-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.10)] backdrop-blur-md">
-                        <img
-                          src="/Telegram.png"
-                          alt="Telegram"
-                          className="h-6 w-6 object-contain"
-                        />
-                      </span>
-                    </div>
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="inline-flex min-h-[42px] w-full items-center justify-center rounded-full border border-white/10 bg-white/12 px-5 text-center text-[14px] font-semibold text-white/92 backdrop-blur-md sm:w-auto">
+                    Синхронизировано
                   </div>
 
-                  <div className="mt-4 text-[15px] leading-7 text-white/88 sm:text-[17px]">
-                    <p className="hidden sm:block">
-                      Все задания для заработка уже доступны в телеграм боте.
-                    </p>
-                    <p className="sm:hidden">
-                      Те же задания для заработка доступны в Телеграм-боте.
-                    </p>
-                  </div>
-
-                  <div className="mt-5 flex items-center justify-between gap-3">
-                    <div className="inline-flex min-h-[42px] items-center rounded-full border border-white/10 bg-white/12 px-5 text-[14px] font-semibold text-white/92 backdrop-blur-md">
-                      Синхронизировано
-                    </div>
-
-                    <div className="inline-flex min-h-[42px] min-w-[152px] items-center justify-center rounded-full border border-white/10 bg-white/12 px-6 text-[16px] font-semibold text-white backdrop-blur-md transition group-hover:bg-white/16">
-                      Открыть
-                    </div>
+                  <div className="inline-flex min-h-[42px] w-full items-center justify-center rounded-full border border-white/10 bg-white/12 px-6 text-center text-[16px] font-semibold text-white backdrop-blur-md transition group-hover:bg-white/16 sm:w-auto sm:min-w-[152px]">
+                    Открыть
                   </div>
                 </div>
-              </button>
+              </div>
+            </button>
 
-              <button
-                type="button"
-                onClick={() => setBotModalOpen("max")}
-                className="group relative overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(135deg,rgba(152,133,228,0.96),rgba(104,95,182,0.96))] px-5 py-5 text-left text-white shadow-[0_18px_40px_rgba(109,40,217,0.18)] transition hover:-translate-y-[2px] hover:shadow-[0_22px_46px_rgba(109,40,217,0.24)] sm:px-6 sm:py-5"
-              >
-                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.24),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02)_45%,rgba(255,255,255,0))]" />
-                <div className="relative z-10 flex h-full flex-col">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="hidden text-[14px] font-semibold text-white/75 sm:block">
-                        Скоро
-                      </div>
-                      <h3 className="mt-2 whitespace-nowrap text-[28px] font-semibold leading-[1.02] tracking-[-0.03em] text-white sm:mt-3 sm:text-[30px]">
-                        Бот в MAX
-                      </h3>
+            <button
+              type="button"
+              onClick={() => setBotModalOpen("max")}
+              className="group relative overflow-hidden rounded-[28px] border border-white/12 bg-[linear-gradient(135deg,rgba(152,133,228,0.96),rgba(104,95,182,0.96))] px-5 py-5 text-left text-white shadow-[0_18px_40px_rgba(109,40,217,0.18)] transition hover:-translate-y-[2px] hover:shadow-[0_22px_46px_rgba(109,40,217,0.24)] sm:px-6 sm:py-5"
+            >
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.24),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02)_45%,rgba(255,255,255,0))]" />
+              <div className="relative z-10 flex h-full flex-col">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="hidden text-[14px] font-semibold text-white/75 sm:block">
+                      Скоро
                     </div>
-
-                    <div className="flex shrink-0 items-center gap-3 pl-2 sm:pt-[2px]">
-                      <span className="whitespace-nowrap text-[14px] font-semibold text-white/78 sm:text-[15px]">
-                        ASK TASK MAX
-                      </span>
-                      <span className="flex h-12 w-12 items-center justify-center rounded-[16px] border border-white/10 bg-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.10)] backdrop-blur-md">
-                        <img
-                          src="/Max.png"
-                          alt="MAX"
-                          className="h-6 w-6 object-contain"
-                        />
-                      </span>
-                    </div>
+                    <h3 className="mt-2 text-[28px] font-semibold leading-[1.02] tracking-[-0.03em] text-white sm:mt-3 sm:text-[30px]">
+                      Бот в MAX
+                    </h3>
                   </div>
 
-                  <div className="mt-4 text-[15px] leading-7 text-white/88 sm:text-[17px]">
-                    <p className="hidden sm:block">
-                      Вы можете выполнять задания через мессенджер MAX.
-                    </p>
-                    <p className="sm:hidden">
-                      Их также можно выполнять через мессенджер MAX.
-                    </p>
-                  </div>
-
-                  <div className="mt-5 flex items-center justify-between gap-3">
-                    <div className="inline-flex min-h-[42px] items-center rounded-full border border-white/10 bg-white/12 px-5 text-[14px] font-semibold text-white/92 backdrop-blur-md">
-                      Синхронизировано
-                    </div>
-
-                    <div className="inline-flex min-h-[42px] min-w-[208px] items-center justify-center rounded-full border border-white/10 bg-white/12 px-6 text-[16px] font-semibold text-white/75 backdrop-blur-md">
-                      Временно недоступно
-                    </div>
+                  <div className="flex shrink-0 items-center gap-2 pl-2 sm:gap-3 sm:pt-[2px]">
+                    <span className="max-w-[110px] text-right text-[13px] font-semibold leading-tight text-white/78 sm:max-w-none sm:whitespace-nowrap sm:text-[15px]">
+                      ASK TASK MAX
+                    </span>
+                    <span className="flex h-14 w-14 items-center justify-center rounded-[18px] border border-white/10 bg-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.10)] backdrop-blur-md sm:h-16 sm:w-16">
+                      <img
+                        src="/Max.png"
+                        alt="MAX"
+                        className="h-8 w-8 object-contain sm:h-10 sm:w-10"
+                      />
+                    </span>
                   </div>
                 </div>
-              </button>
-            </div>
+
+                <div className="mt-4 text-[15px] leading-7 text-white/88 sm:text-[17px]">
+                  <p className="hidden sm:block">
+                    Вы можете выполнять задания через мессенджер MAX.
+                  </p>
+                  <p className="sm:hidden">
+                    Их также можно выполнять через мессенджер MAX.
+                  </p>
+                </div>
+
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="inline-flex min-h-[42px] w-full items-center justify-center rounded-full border border-white/10 bg-white/12 px-5 text-center text-[14px] font-semibold text-white/92 backdrop-blur-md sm:w-auto">
+                    Синхронизировано
+                  </div>
+
+                  <div className="inline-flex min-h-[42px] w-full items-center justify-center rounded-full border border-white/10 bg-white/12 px-6 text-center text-[16px] font-semibold text-white/75 backdrop-blur-md sm:w-auto sm:min-w-[152px]">
+                    Временно недоступно
+                  </div>
+                </div>
+              </div>
+            </button>
           </div>
         </div>
 
