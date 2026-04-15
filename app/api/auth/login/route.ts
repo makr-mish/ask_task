@@ -16,12 +16,10 @@ const pool = mysql
   .promise();
 
 export async function POST(req: Request) {
-  const FALLBACK_LOGIN = process.env.FALLBACK_LOGIN;
-  const FALLBACK_PASSWORD = process.env.FALLBACK_PASSWORD;
-  const FALLBACK_USER_ID = Number(process.env.FALLBACK_USER_ID || -1);
-
   try {
     const { login, password } = await req.json();
+
+    console.log("LOGIN TRY:", login);
 
     if (!login || !password) {
       return NextResponse.json(
@@ -31,11 +29,12 @@ export async function POST(req: Request) {
     }
 
     try {
-      // 🔹 Пытаемся через БД
       const [rows]: any = await pool.query(
         "SELECT * FROM users WHERE email = ?",
         [login]
       );
+
+      console.log("DB RESULT:", rows);
 
       if (rows.length === 0) {
         return NextResponse.json(
@@ -45,6 +44,7 @@ export async function POST(req: Request) {
       }
 
       const user = rows[0];
+
       const isValid = await bcrypt.compare(password, user.password);
 
       if (!isValid) {
@@ -58,30 +58,37 @@ export async function POST(req: Request) {
         success: true,
         userId: user.id,
       });
+    } catch (dbError: any) {
+      console.error("DB ERROR:", dbError);
 
-    } catch (dbError) {
-      console.error("DB ERROR → используем fallback:", dbError);
-
-      // 🔥 fallback логин
-      if (login === FALLBACK_LOGIN && password === FALLBACK_PASSWORD) {
+      // fallback
+      if (
+        login === process.env.FALLBACK_LOGIN &&
+        password === process.env.FALLBACK_PASSWORD
+      ) {
         return NextResponse.json({
           success: true,
-          userId: FALLBACK_USER_ID,
+          userId: Number(process.env.FALLBACK_USER_ID),
           fallback: true,
         });
       }
 
       return NextResponse.json(
-        { error: "База недоступна и fallback не подошёл" },
+        {
+          error: "База недоступна и fallback не подошёл",
+          details: dbError?.message,
+        },
         { status: 500 }
       );
     }
-
-  } catch (error) {
-    console.error("LOGIN ERROR:", error);
+  } catch (e: any) {
+    console.error("LOGIN ERROR:", e);
 
     return NextResponse.json(
-      { error: "Ошибка сервера" },
+      {
+        error: "Ошибка сервера",
+        details: e?.message,
+      },
       { status: 500 }
     );
   }
