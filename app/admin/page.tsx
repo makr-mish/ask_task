@@ -41,26 +41,19 @@ type PlatformOptionRow = {
   platform: string | null;
 };
 
-type AssignedReviewRow = {
+type CompletedTaskRow = {
   id: number;
   user_id: string;
   platform: string | null;
-  created_at: string | Date;
-  event_data: string | null;
+  feedback_id: string | null;
+  fb_id: string | null;
+  completed_at: string | Date;
 };
 
 type SearchParams = {
   dateFrom?: string;
   dateTo?: string;
   platform?: string;
-};
-
-type AssignedReviewMeta = {
-  feedbackId?: string | number | null;
-  fbId?: string | number | null;
-  siteId?: string | number | null;
-  accountName?: string | null;
-  region?: string | number | null;
 };
 
 function formatDateTime(value: string | Date | null | undefined) {
@@ -112,26 +105,6 @@ function buildWhere(filters: string[]) {
   return filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
 }
 
-function parseAssignedReviewMeta(value: string | null): AssignedReviewMeta {
-  if (!value) return {};
-
-  try {
-    const parsed = JSON.parse(value);
-
-    if (!parsed || typeof parsed !== "object") {
-      return {};
-    }
-
-    return parsed as AssignedReviewMeta;
-  } catch {
-    return {};
-  }
-}
-
-function pickReviewId(meta: AssignedReviewMeta) {
-  return meta.feedbackId || meta.fbId || meta.siteId || "—";
-}
-
 export default async function AdminPage({
   searchParams,
 }: {
@@ -176,6 +149,31 @@ export default async function AdminPage({
   }
 
   const baseWhere = buildWhere(filters);
+
+  const completedTaskFilters: string[] = [];
+  const completedTaskParams: Array<string> = [];
+
+  if (!hasDateFilter) {
+    completedTaskFilters.push("completed_at >= CURDATE()");
+    completedTaskFilters.push("completed_at < CURDATE() + INTERVAL 1 DAY");
+  } else {
+    if (dateFrom) {
+      completedTaskFilters.push("completed_at >= ?");
+      completedTaskParams.push(`${dateFrom} 00:00:00`);
+    }
+
+    if (dateTo) {
+      completedTaskFilters.push("completed_at <= ?");
+      completedTaskParams.push(`${dateTo} 23:59:59`);
+    }
+  }
+
+  if (platform) {
+    completedTaskFilters.push("platform = ?");
+    completedTaskParams.push(platform);
+  }
+
+  const completedTasksWhere = buildWhere(completedTaskFilters);
 
   const [platformOptionsRows] = await db.query(
     `
@@ -335,19 +333,15 @@ export default async function AdminPage({
     params,
   );
 
-  const [assignedReviewRows] = await db.query(
+  const [completedTasksRows] = await db.query(
     `
-    SELECT id, user_id, platform, created_at, event_data
-    FROM task_events
-    ${
-      baseWhere
-        ? `${baseWhere} AND event_type = 'task_assigned'`
-        : "WHERE event_type = 'task_assigned'"
-    }
-    ORDER BY created_at DESC
+    SELECT id, user_id, platform, feedback_id, fb_id, completed_at
+    FROM completed_tasks
+    ${completedTasksWhere}
+    ORDER BY completed_at DESC
     LIMIT 100
     `,
-    params,
+    completedTaskParams,
   );
 
   const totalVisits = (totalVisitsRows as StatRow[])[0]?.total ?? 0;
@@ -548,11 +542,10 @@ export default async function AdminPage({
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-2xl font-bold text-slate-900">
-                ID отзывов, которые взяли
+                Завершенные задания
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                Показываются ID из новых выдач. Для старых записей, где ID не логировался,
-                будет «—».
+                Данные берутся из таблицы completed_tasks.
               </p>
             </div>
           </div>
@@ -564,37 +557,31 @@ export default async function AdminPage({
                   <th className="px-3 py-3">Время</th>
                   <th className="px-3 py-3">Пользователь</th>
                   <th className="px-3 py-3">Платформа</th>
-                  <th className="px-3 py-3">ID отзыва</th>
+                  <th className="px-3 py-3">feedback_id</th>
                   <th className="px-3 py-3">fb_id</th>
-                  <th className="px-3 py-3">site_id</th>
                 </tr>
               </thead>
               <tbody>
-                {(assignedReviewRows as AssignedReviewRow[]).length === 0 ? (
+                {(completedTasksRows as CompletedTaskRow[]).length === 0 ? (
                   <tr>
-                    <td className="px-3 py-4 text-slate-500" colSpan={6}>
+                    <td className="px-3 py-4 text-slate-500" colSpan={5}>
                       Нет данных
                     </td>
                   </tr>
                 ) : (
-                  (assignedReviewRows as AssignedReviewRow[]).map((row) => {
-                    const meta = parseAssignedReviewMeta(row.event_data);
-
-                    return (
-                      <tr key={row.id} className="border-b border-slate-100">
-                        <td className="px-3 py-3">{formatDateTime(row.created_at)}</td>
-                        <td className="px-3 py-3 font-medium text-slate-900">
-                          {row.user_id}
-                        </td>
-                        <td className="px-3 py-3">{row.platform || "—"}</td>
-                        <td className="px-3 py-3 font-semibold text-slate-900">
-                          {pickReviewId(meta)}
-                        </td>
-                        <td className="px-3 py-3">{meta.fbId || "—"}</td>
-                        <td className="px-3 py-3">{meta.siteId || "—"}</td>
-                      </tr>
-                    );
-                  })
+                  (completedTasksRows as CompletedTaskRow[]).map((row) => (
+                    <tr key={row.id} className="border-b border-slate-100">
+                      <td className="px-3 py-3">{formatDateTime(row.completed_at)}</td>
+                      <td className="px-3 py-3 font-medium text-slate-900">
+                        {row.user_id}
+                      </td>
+                      <td className="px-3 py-3">{row.platform || "—"}</td>
+                      <td className="px-3 py-3 font-semibold text-slate-900">
+                        {row.feedback_id || "—"}
+                      </td>
+                      <td className="px-3 py-3">{row.fb_id || "—"}</td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>

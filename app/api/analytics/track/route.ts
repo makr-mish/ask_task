@@ -10,6 +10,11 @@ type Body = {
   eventData?: Record<string, unknown>;
 };
 
+function normalizeNullableString(value: unknown) {
+  const normalized = String(value ?? "").trim();
+  return normalized ? normalized : null;
+}
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as Body;
@@ -38,6 +43,26 @@ export async function POST(req: Request) {
         eventData ? JSON.stringify(eventData) : null,
       ]
     );
+
+    if (eventType === "task_submit") {
+      const feedbackId = normalizeNullableString(
+        eventData && "feedbackId" in eventData ? eventData.feedbackId : null
+      );
+      const fbId = normalizeNullableString(
+        eventData && "fbId" in eventData ? eventData.fbId : null
+      );
+      const reviewId = feedbackId ?? fbId;
+
+      if (reviewId) {
+        await db.query(
+          `
+          INSERT INTO completed_tasks (user_id, platform, feedback_id, fb_id, completed_at)
+          VALUES (?, ?, ?, ?, NOW())
+          `,
+          [userId, platform, feedbackId, fbId]
+        );
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1200,6 +1200,11 @@ const progressMeta = useMemo(() => {
         userId: USER_ID_TEXT,
         eventType: "task_submit",
         platform: platformKey,
+        eventData: {
+          feedbackId: feedbackId || null,
+          fbId: fbId || null,
+          siteId: siteId || null,
+        },
       });
     } catch (error) {
       console.error(error);
