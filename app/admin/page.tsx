@@ -41,10 +41,26 @@ type PlatformOptionRow = {
   platform: string | null;
 };
 
+type AssignedReviewRow = {
+  id: number;
+  user_id: string;
+  platform: string | null;
+  created_at: string | Date;
+  event_data: string | null;
+};
+
 type SearchParams = {
   dateFrom?: string;
   dateTo?: string;
   platform?: string;
+};
+
+type AssignedReviewMeta = {
+  feedbackId?: string | number | null;
+  fbId?: string | number | null;
+  siteId?: string | number | null;
+  accountName?: string | null;
+  region?: string | number | null;
 };
 
 function formatDateTime(value: string | Date | null | undefined) {
@@ -81,6 +97,7 @@ function getEventLabel(eventType: string) {
     task_submit: "Отправил на проверку",
     task_reset: "Сбросил задание",
     task_error: "Ошибка",
+    presence_ping: "Онлайн",
   };
 
   return map[eventType] || eventType;
@@ -93,6 +110,26 @@ function normalizeDate(value?: string) {
 
 function buildWhere(filters: string[]) {
   return filters.length > 0 ? `WHERE ${filters.join(" AND ")}` : "";
+}
+
+function parseAssignedReviewMeta(value: string | null): AssignedReviewMeta {
+  if (!value) return {};
+
+  try {
+    const parsed = JSON.parse(value);
+
+    if (!parsed || typeof parsed !== "object") {
+      return {};
+    }
+
+    return parsed as AssignedReviewMeta;
+  } catch {
+    return {};
+  }
+}
+
+function pickReviewId(meta: AssignedReviewMeta) {
+  return meta.feedbackId || meta.fbId || meta.siteId || "—";
 }
 
 export default async function AdminPage({
@@ -113,33 +150,32 @@ export default async function AdminPage({
   const dateTo = normalizeDate(resolvedSearchParams.dateTo);
   const platform = normalizeDate(resolvedSearchParams.platform);
 
- const filters: string[] = [];
-const params: Array<string> = [];
+  const filters: string[] = [];
+  const params: Array<string> = [];
 
-const hasDateFilter = Boolean(dateFrom || dateTo);
+  const hasDateFilter = Boolean(dateFrom || dateTo);
 
-// Если даты не выбраны вручную — показываем только сегодня
-if (!hasDateFilter) {
-  filters.push("created_at >= CURDATE()");
-  filters.push("created_at < CURDATE() + INTERVAL 1 DAY");
-} else {
-  if (dateFrom) {
-    filters.push("created_at >= ?");
-    params.push(`${dateFrom} 00:00:00`);
+  if (!hasDateFilter) {
+    filters.push("created_at >= CURDATE()");
+    filters.push("created_at < CURDATE() + INTERVAL 1 DAY");
+  } else {
+    if (dateFrom) {
+      filters.push("created_at >= ?");
+      params.push(`${dateFrom} 00:00:00`);
+    }
+
+    if (dateTo) {
+      filters.push("created_at <= ?");
+      params.push(`${dateTo} 23:59:59`);
+    }
   }
 
-  if (dateTo) {
-    filters.push("created_at <= ?");
-    params.push(`${dateTo} 23:59:59`);
+  if (platform) {
+    filters.push("platform = ?");
+    params.push(platform);
   }
-}
 
-if (platform) {
-  filters.push("platform = ?");
-  params.push(platform);
-}
-
-const baseWhere = buildWhere(filters);
+  const baseWhere = buildWhere(filters);
 
   const [platformOptionsRows] = await db.query(
     `
@@ -148,6 +184,37 @@ const baseWhere = buildWhere(filters);
     WHERE platform IS NOT NULL
       AND platform <> ''
     ORDER BY platform ASC
+    `,
+  );
+
+  const [registeredUsersRows] = await db.query(
+    `
+    SELECT COUNT(*) as total
+    FROM users
+    `,
+  );
+
+  const [uniqueLoggedInRows] = await db.query(
+    `
+    SELECT COUNT(DISTINCT user_id) as total
+    FROM task_events
+    WHERE event_type = 'dashboard_visit'
+    `,
+  );
+
+  const [onlineUsersRows] = await db.query(
+    `
+    SELECT COUNT(DISTINCT user_id) as total
+    FROM task_events
+    WHERE created_at >= NOW() - INTERVAL 5 MINUTE
+    `,
+  );
+
+  const [allTimeAssignedRows] = await db.query(
+    `
+    SELECT COUNT(*) as total
+    FROM task_events
+    WHERE event_type = 'task_assigned'
     `,
   );
 
@@ -268,11 +335,30 @@ const baseWhere = buildWhere(filters);
     params,
   );
 
+  const [assignedReviewRows] = await db.query(
+    `
+    SELECT id, user_id, platform, created_at, event_data
+    FROM task_events
+    ${
+      baseWhere
+        ? `${baseWhere} AND event_type = 'task_assigned'`
+        : "WHERE event_type = 'task_assigned'"
+    }
+    ORDER BY created_at DESC
+    LIMIT 100
+    `,
+    params,
+  );
+
   const totalVisits = (totalVisitsRows as StatRow[])[0]?.total ?? 0;
   const totalStarted = (totalStartedRows as StatRow[])[0]?.total ?? 0;
   const totalAssigned = (totalAssignedRows as StatRow[])[0]?.total ?? 0;
   const totalSubmitted = (totalSubmittedRows as StatRow[])[0]?.total ?? 0;
   const uniqueUsers = (uniqueUsersRows as StatRow[])[0]?.total ?? 0;
+  const registeredUsers = (registeredUsersRows as StatRow[])[0]?.total ?? 0;
+  const uniqueLoggedIn = (uniqueLoggedInRows as StatRow[])[0]?.total ?? 0;
+  const onlineUsers = (onlineUsersRows as StatRow[])[0]?.total ?? 0;
+  const allTimeAssigned = (allTimeAssignedRows as StatRow[])[0]?.total ?? 0;
 
   const conversionAssigned =
     totalStarted > 0 ? Math.round((totalAssigned / totalStarted) * 100) : 0;
@@ -289,32 +375,57 @@ const baseWhere = buildWhere(filters);
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-6 sm:px-6">
       <div className="mx-auto max-w-7xl space-y-6">
-<div className="flex flex-col gap-4 rounded-3xl bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-  <div>
-    <h1 className="text-3xl font-bold text-slate-900">Админка ASK TASK</h1>
-    <p className="mt-1 text-slate-500">
-      Статистика по исполнителям и заданиям
-    </p>
-  </div>
+        <div className="flex flex-col gap-4 rounded-3xl bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Админка ASK TASK</h1>
+            <p className="mt-1 text-slate-500">
+              Статистика по исполнителям и заданиям
+            </p>
+          </div>
 
-  <div className="flex flex-col gap-3 sm:flex-row">
-    <a
-      href="/admin/tickets"
-      className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-    >
-      Тикеты поддержки
-    </a>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <a
+              href="/admin/tickets"
+              className="inline-flex h-11 items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Тикеты поддержки
+            </a>
 
-    <form action="/api/admin/logout" method="post">
-      <button
-        type="submit"
-        className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
-      >
-        Выйти
-      </button>
-    </form>
-  </div>
-</div>
+            <form action="/api/admin/logout" method="post">
+              <button
+                type="submit"
+                className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                Выйти
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-3xl bg-white p-5 shadow-sm">
+            <div className="text-sm text-slate-500">Всего зарегистрировано</div>
+            <div className="mt-2 text-3xl font-bold text-slate-900">{registeredUsers}</div>
+          </div>
+
+          <div className="rounded-3xl bg-white p-5 shadow-sm">
+            <div className="text-sm text-slate-500">Уникально заходили в кабинет</div>
+            <div className="mt-2 text-3xl font-bold text-slate-900">{uniqueLoggedIn}</div>
+          </div>
+
+          <div className="rounded-3xl bg-white p-5 shadow-sm">
+            <div className="text-sm text-slate-500">Онлайн сейчас</div>
+            <div className="mt-2 text-3xl font-bold text-emerald-600">{onlineUsers}</div>
+            <div className="mt-2 text-xs text-slate-400">
+              По активности за последние 5 минут
+            </div>
+          </div>
+
+          <div className="rounded-3xl bg-white p-5 shadow-sm">
+            <div className="text-sm text-slate-500">Выдано заданий за все время</div>
+            <div className="mt-2 text-3xl font-bold text-slate-900">{allTimeAssigned}</div>
+          </div>
+        </section>
 
         <section className="rounded-3xl bg-white p-6 shadow-sm">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -432,6 +543,63 @@ const baseWhere = buildWhere(filters);
         </div>
 
         <AdminFreeReviews />
+
+        <section className="rounded-3xl bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">
+                ID отзывов, которые взяли
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Показываются ID из новых выдач. Для старых записей, где ID не логировался,
+                будет «—».
+              </p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="border-b border-slate-200 text-slate-500">
+                <tr>
+                  <th className="px-3 py-3">Время</th>
+                  <th className="px-3 py-3">Пользователь</th>
+                  <th className="px-3 py-3">Платформа</th>
+                  <th className="px-3 py-3">ID отзыва</th>
+                  <th className="px-3 py-3">fb_id</th>
+                  <th className="px-3 py-3">site_id</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(assignedReviewRows as AssignedReviewRow[]).length === 0 ? (
+                  <tr>
+                    <td className="px-3 py-4 text-slate-500" colSpan={6}>
+                      Нет данных
+                    </td>
+                  </tr>
+                ) : (
+                  (assignedReviewRows as AssignedReviewRow[]).map((row) => {
+                    const meta = parseAssignedReviewMeta(row.event_data);
+
+                    return (
+                      <tr key={row.id} className="border-b border-slate-100">
+                        <td className="px-3 py-3">{formatDateTime(row.created_at)}</td>
+                        <td className="px-3 py-3 font-medium text-slate-900">
+                          {row.user_id}
+                        </td>
+                        <td className="px-3 py-3">{row.platform || "—"}</td>
+                        <td className="px-3 py-3 font-semibold text-slate-900">
+                          {pickReviewId(meta)}
+                        </td>
+                        <td className="px-3 py-3">{meta.fbId || "—"}</td>
+                        <td className="px-3 py-3">{meta.siteId || "—"}</td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
 
         <section className="rounded-3xl bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-2xl font-bold text-slate-900">

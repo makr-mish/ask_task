@@ -6,7 +6,8 @@ export type AnalyticsEventType =
   | "task_assigned"
   | "task_submit"
   | "task_reset"
-  | "task_error";
+  | "task_error"
+  | "presence_ping";
 
 type TrackEventPayload = {
   userId: string;

@@ -887,6 +887,13 @@ const progressMeta = useMemo(() => {
           userId: USER_ID_TEXT,
           eventType: "task_assigned",
           platform: platformKey,
+          eventData: {
+            feedbackId: feedbackData.feedbackId || null,
+            fbId: feedbackData.fbId || null,
+            siteId: feedbackData.siteId || null,
+            accountName: accountName.trim(),
+            region: region.trim(),
+          },
         });
 
         return;
@@ -911,6 +918,13 @@ const progressMeta = useMemo(() => {
         userId: USER_ID_TEXT,
         eventType: "task_assigned",
         platform: platformKey,
+        eventData: {
+          feedbackId: feedbackData.feedbackId || null,
+          fbId: feedbackData.fbId || null,
+          siteId: feedbackData.siteId || null,
+          accountName: accountName.trim(),
+          region: region.trim(),
+        },
       });
     } catch (error) {
       console.error(error);
