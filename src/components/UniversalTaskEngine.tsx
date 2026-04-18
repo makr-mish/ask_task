@@ -336,23 +336,11 @@ setStepState("loadingTask");
 
 await new Promise((resolve) => setTimeout(resolve, 2000));
 
-if (platformKey === "yandex-browser") {
-  const browserTaskText =
-    String(
-      feedbackData?.raw?.raw?.link_post ??
-        feedbackData?.raw?.data?.link_post ??
-        feedbackData?.raw?.link_post ??
-        "Откройте карточку организации в Яндекс Браузере и выполните задание.",
-    ).trim();
-
-  setTaskText(browserTaskText);
-  setStepState("taskReady");
-  return;
-}
-
 const taskData = await getTask(platformKey, {
   userIdText: USER_ID_TEXT,
   fb_id: feedbackData.fbId,
+  id_yandex_browser:
+    platformKey === "yandex-browser" ? feedbackData.siteId : undefined,
 });
 
 if (!taskData?.taskText || !taskData.taskText.trim()) {

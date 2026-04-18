@@ -869,39 +869,11 @@ const progressMeta = useMemo(() => {
 
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      if (platformKey === "yandex-browser") {
-        const browserTaskText = String(
-          feedbackData?.raw?.raw?.link_post ??
-            feedbackData?.raw?.data?.link_post ??
-            feedbackData?.raw?.link_post ??
-            "Откройте карточку организации в Яндекс Браузере и выполните задание.",
-        ).trim();
-
-        setTaskText(browserTaskText);
-        setAssignedAt(Date.now());
-        setExpiresAt(Date.now() + TASK_SESSION_TTL_MS);
-        setSavedTaskPrompt(null);
-        setStepState("taskReady");
-
-        void trackEvent({
-          userId: USER_ID_TEXT,
-          eventType: "task_assigned",
-          platform: platformKey,
-          eventData: {
-            feedbackId: feedbackData.feedbackId || null,
-            fbId: feedbackData.fbId || null,
-            siteId: feedbackData.siteId || null,
-            accountName: accountName.trim(),
-            region: region.trim(),
-          },
-        });
-
-        return;
-      }
-
       const taskData = await getTask(platformKey, {
         userIdText: USER_ID_TEXT,
         fb_id: feedbackData.fbId,
+        id_yandex_browser:
+          platformKey === "yandex-browser" ? feedbackData.siteId : undefined,
       });
 
       if (!taskData?.taskText || !taskData.taskText.trim()) {
