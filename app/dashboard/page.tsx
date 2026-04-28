@@ -36,6 +36,7 @@ type SavedTaskSession = {
   expiresAt: number;
   assignedAt?: number;
   stepState?: string;
+  moderationDeadlineAt?: number | null;
 };
 
 const TASK_SESSION_TTL_MS = 60 * 60 * 1000;
@@ -101,8 +102,37 @@ function getActiveTaskSessions(userIdText: string) {
   }, {});
 }
 
-function getRemainingTaskMinutes(expiresAt: number) {
-  return Math.max(0, Math.ceil((expiresAt - Date.now()) / 60000));
+function getRemainingTaskSeconds(expiresAt: number, now = Date.now()) {
+  return Math.max(0, Math.ceil((expiresAt - now) / 1000));
+}
+
+function formatRemainingTaskTime(totalSeconds: number) {
+  const safeSeconds = Math.max(0, totalSeconds);
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function getTaskWaitingDeadline(task: SavedTaskSession) {
+  if (
+    task.stepState === "moderationTimer" &&
+    typeof task.moderationDeadlineAt === "number" &&
+    task.moderationDeadlineAt > Date.now()
+  ) {
+    return task.moderationDeadlineAt;
+  }
+
+  return task.expiresAt;
+}
+
+function getRandomMultiple(min: number, max: number, step: number) {
+  const steps = Math.floor((max - min) / step) + 1;
+  return min + Math.floor(Math.random() * steps) * step;
+}
+
+function formatRubles(value: number) {
+  return new Intl.NumberFormat("ru-RU").format(value);
 }
 
 export default function DashboardPage() {
@@ -115,6 +145,10 @@ export default function DashboardPage() {
   const [freeLoaded, setFreeLoaded] = useState(false);
   const [reviewsExpanded, setReviewsExpanded] = useState(false);
   const [activitiesExpanded, setActivitiesExpanded] = useState(false);
+  const [worldTaskStats] = useState(() => ({
+    price: getRandomMultiple(13900, 18500, 100),
+    free: getRandomMultiple(25, 40, 1),
+  }));
 
   const [balanceData, setBalanceData] = useState<{
     pending: number;
@@ -139,7 +173,7 @@ export default function DashboardPage() {
   const [activeTaskSessions, setActiveTaskSessions] = useState<
     Record<string, SavedTaskSession>
   >({});
-  const [, setTaskTimerTick] = useState(0);
+  const [taskTimerNow, setTaskTimerNow] = useState(() => Date.now());
 
   const [reviewsRipple, setReviewsRipple] = useState<RippleState | null>(null);
   const [activitiesRipple, setActivitiesRipple] = useState<RippleState | null>(
@@ -378,8 +412,19 @@ export default function DashboardPage() {
     if (!user) return;
 
     const intervalId = window.setInterval(() => {
+      setTaskTimerNow(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const intervalId = window.setInterval(() => {
       refreshActiveTaskSessions(user.USER_ID_TEXT);
-      setTaskTimerTick((prev) => prev + 1);
     }, 15000);
 
     return () => {
@@ -654,9 +699,9 @@ export default function DashboardPage() {
                             const cardStyle = getTaskCardStyle(freeValue);
                             const activeTask = activeTaskSessions[platform.slug];
                             const isResumeTask = Boolean(activeTask);
-                            const remainingTaskMinutes = activeTask
-                              ? getRemainingTaskMinutes(activeTask.expiresAt)
-                              : 0;
+                            const remainingTaskSeconds = activeTask
+                                ? getRemainingTaskSeconds(getTaskWaitingDeadline(activeTask), taskTimerNow)
+                                : 0;
 
                             const freeNum = Number(freeValue);
                             const isErrorState = freeValue === "Ошибка" || freeValue === "—";
@@ -684,7 +729,7 @@ export default function DashboardPage() {
                                     {platform.label}
                                   </div>
 
-                                  <div className="flex flex-col items-end gap-2 self-start sm:self-auto">
+                                  <div className="flex flex-col items-start gap-2 self-start sm:items-end sm:self-auto">
                                     {isResumeTask && (
                                       <div className="inline-flex items-center justify-center rounded-full border border-yellow-300 bg-yellow-200 px-3 py-1 text-[12px] font-semibold text-slate-900 shadow-[0_8px_18px_rgba(234,179,8,0.16)] sm:text-[13px]">
                                         Незавершённое задание
@@ -703,7 +748,7 @@ export default function DashboardPage() {
 
                                 {isResumeTask && (
                                   <div className="mb-4 rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-[14px] font-medium text-slate-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)] sm:mb-5 sm:text-[15px]">
-                                    Доступно ещё: <span className="font-bold text-slate-950">{remainingTaskMinutes} мин</span>
+                                    Ожидание <span className="font-bold text-slate-950">{formatRemainingTaskTime(remainingTaskSeconds)}</span>
                                   </div>
                                 )}
 
@@ -800,8 +845,47 @@ export default function DashboardPage() {
                   </div>
 
                   {activitiesExpanded ? (
-                    <div className="text-sm leading-6 text-slate-500">
-                      Раздел активностей скоро появится. Здесь покажем быстрые задания и бонусы.
+                    <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
+                      <div
+                        className="relative rounded-[22px] border p-4 transition duration-300 hover:-translate-y-[4px] hover:scale-[1.01] hover:shadow-[0_16px_34px_rgba(15,23,42,0.08)] sm:rounded-[24px] sm:p-5"
+                        style={{
+                          background:
+                            "linear-gradient(90deg, rgba(187,247,208,0.18) 0%, rgba(220,252,231,0.1) 70%, rgba(255,255,255,0.97) 100%)",
+                          borderColor: "rgba(34,197,94,0.28)",
+                          boxShadow:
+                            "0 10px 24px rgba(15,23,42,0.05), inset 0 0 0 1px rgba(255,255,255,0.35), 0 0 0 1px rgba(34,197,94,0.08)",
+                        }}
+                      >
+                        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="text-[20px] font-bold text-slate-900 sm:text-[22px]">
+                            Другие активности
+                          </div>
+
+                          <div className="flex flex-col items-start gap-2 self-start sm:items-end sm:self-auto">
+                            <div className="inline-flex items-center justify-center rounded-full border border-yellow-300 bg-yellow-200 px-3 py-1 text-[12px] font-semibold text-slate-900 shadow-[0_8px_18px_rgba(234,179,8,0.16)] sm:text-[13px]">
+                              Новое
+                            </div>
+
+                            <div className="inline-flex w-fit min-w-[70px] items-center justify-center rounded-2xl border border-white/50 bg-gradient-to-br from-white/40 to-white/10 px-4 py-2 text-[15px] font-semibold tracking-tight text-slate-900 backdrop-blur-xl shadow-[0_10px_30px_rgba(15,23,42,0.15)] sm:text-base">
+                              Оплата {formatRubles(worldTaskStats.price)} руб
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mb-4 text-[16px] text-slate-700 sm:mb-3 sm:text-[17px]">
+                          Свободных заданий: {worldTaskStats.free}
+                        </div>
+
+                        <a
+                          href="https://task-world.ru"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-slate-950 px-5 text-[15px] font-semibold text-white transition hover:bg-slate-800 active:scale-[0.98] sm:w-auto sm:text-base"
+                        >
+                          Перейти на world-task.ru
+                        </a>
+                      </div>
                     </div>
                   ) : (
                     <p className="text-[15px] leading-6 text-slate-500">

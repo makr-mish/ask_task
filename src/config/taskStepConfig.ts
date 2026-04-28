@@ -14,7 +14,7 @@ export type PlatformStepConfig = {
   controlQuestionIds?: string[];
 };
 
-export const DEFAULT_PLATFORM_TIMER_SECONDS = 10;
+export const DEFAULT_PLATFORM_TIMER_SECONDS = 30 * 60;
 
 export const PLATFORM_STEP_CONFIG: Record<string, PlatformStepConfig> = {
   yandex: {
@@ -28,7 +28,7 @@ export const PLATFORM_STEP_CONFIG: Record<string, PlatformStepConfig> = {
       "reviewSubmitting",
       "reviewSubmitted",
     ],
-    timerSeconds: 10,
+    timerSeconds: DEFAULT_PLATFORM_TIMER_SECONDS,
     controlQuestionIds: ["question1", "question2", "check"],
   },
   "yandex-browser": {
@@ -40,7 +40,7 @@ export const PLATFORM_STEP_CONFIG: Record<string, PlatformStepConfig> = {
       "reviewSubmitting",
       "reviewSubmitted",
     ],
-    timerSeconds: 10,
+    timerSeconds: DEFAULT_PLATFORM_TIMER_SECONDS,
     controlQuestionIds: ["question1", "question2"],
   },
   avito: {
@@ -87,3 +87,4 @@ export function getPlatformTimerSeconds(platform: string) {
 export function getPlatformControlQuestionIds(platform: string) {
   return getPlatformStepConfig(platform)?.controlQuestionIds ?? [];
 }
+

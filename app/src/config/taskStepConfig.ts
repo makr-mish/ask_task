@@ -17,6 +17,8 @@ export type PlatformStepConfig = {
   controlQuestionIds?: string[];
 };
 
+export const DEFAULT_PLATFORM_TIMER_SECONDS = 30 * 60;
+
 export const PLATFORM_STEP_CONFIG: Record<string, PlatformStepConfig> = {
   yandex: {
     steps: [
@@ -29,7 +31,7 @@ export const PLATFORM_STEP_CONFIG: Record<string, PlatformStepConfig> = {
       "reviewSubmitting",
       "reviewSubmitted",
     ],
-    timerSeconds: 10,
+    timerSeconds: DEFAULT_PLATFORM_TIMER_SECONDS,
     controlQuestionIds: ["question1", "question2", "check"],
   },
 
@@ -42,7 +44,7 @@ export const PLATFORM_STEP_CONFIG: Record<string, PlatformStepConfig> = {
       "reviewSubmitting",
       "reviewSubmitted",
     ],
-    timerSeconds: 10,
+    timerSeconds: DEFAULT_PLATFORM_TIMER_SECONDS,
     controlQuestionIds: ["question1", "question2"],
   },
 
@@ -55,13 +57,13 @@ export const PLATFORM_STEP_CONFIG: Record<string, PlatformStepConfig> = {
     "reviewSubmitting",
     "reviewSubmitted",
   ],
-  timerSeconds: 10,
+  timerSeconds: DEFAULT_PLATFORM_TIMER_SECONDS,
   controlQuestionIds: ["question1", "question2", "check"],
 },
 
   avito: {
     steps: [],
-    timerSeconds: 10,
+    timerSeconds: DEFAULT_PLATFORM_TIMER_SECONDS,
     controlQuestionIds: [],
   },
 
@@ -74,7 +76,7 @@ export const PLATFORM_STEP_CONFIG: Record<string, PlatformStepConfig> = {
     "reviewSubmitting",
     "reviewSubmitted",
   ],
-  timerSeconds: 10,
+  timerSeconds: DEFAULT_PLATFORM_TIMER_SECONDS,
   controlQuestionIds: ["question1", "question2", "check"],
 },
 "vk": {
@@ -86,7 +88,7 @@ export const PLATFORM_STEP_CONFIG: Record<string, PlatformStepConfig> = {
     "reviewSubmitting",
     "reviewSubmitted",
   ],
-  timerSeconds: 10,
+  timerSeconds: DEFAULT_PLATFORM_TIMER_SECONDS,
   controlQuestionIds: ["question1", "check"],
 },
 
@@ -99,7 +101,7 @@ flamp: {
     "reviewSubmitting",
     "reviewSubmitted",
   ],
-  timerSeconds: 10,
+  timerSeconds: DEFAULT_PLATFORM_TIMER_SECONDS,
   controlQuestionIds: ["check"],
 },
 
@@ -112,7 +114,7 @@ zoon: {
     "reviewSubmitting",
     "reviewSubmitted",
   ],
-  timerSeconds: 10,
+  timerSeconds: DEFAULT_PLATFORM_TIMER_SECONDS,
   controlQuestionIds: ["question1", "question2", "check"],
 },
 
@@ -124,7 +126,7 @@ yell: {
     "reviewSubmitting",
     "reviewSubmitted",
   ],
-  timerSeconds: 10,
+  timerSeconds: DEFAULT_PLATFORM_TIMER_SECONDS,
   controlQuestionIds: [],
 },
 
@@ -136,7 +138,7 @@ twogis: {
     "reviewSubmitting",
     "reviewSubmitted",
   ],
-  timerSeconds: 10,
+  timerSeconds: DEFAULT_PLATFORM_TIMER_SECONDS,
   controlQuestionIds: [],
 },
 
@@ -149,7 +151,7 @@ twogis: {
     "reviewSubmitted",
   ],
   controlQuestionIds: ["question1", "question2", "question3"],
-  timerSeconds: 10,
+  timerSeconds: DEFAULT_PLATFORM_TIMER_SECONDS,
 },
 
 };
@@ -157,7 +159,7 @@ twogis: {
 export function getPlatformStepConfig(platformKey: string): PlatformStepConfig {
   return PLATFORM_STEP_CONFIG[platformKey] ?? {
     steps: [],
-    timerSeconds: 10,
+    timerSeconds: DEFAULT_PLATFORM_TIMER_SECONDS,
     controlQuestionIds: [],
   };
 }
@@ -188,5 +190,5 @@ export function getPlatformControlQuestionIds(platformKey: string): string[] {
 }
 
 export function getPlatformTimerSeconds(platformKey: string): number {
-  return getPlatformStepConfig(platformKey).timerSeconds ?? 10;
+  return getPlatformStepConfig(platformKey).timerSeconds ?? DEFAULT_PLATFORM_TIMER_SECONDS;
 }

@@ -65,6 +65,25 @@ function PreviewModal({
   );
 }
 
+function formatTimerSeconds(totalSeconds: number) {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function getTimerProgressPercent(totalSeconds: number, remainingSeconds: number) {
+  if (totalSeconds <= 0) {
+    return 100;
+  }
+
+  const elapsedSeconds = Math.max(0, totalSeconds - remainingSeconds);
+  return Math.max(
+    0,
+    Math.min(100, Math.round((elapsedSeconds / totalSeconds) * 100)),
+  );
+}
 function resetEngineState(setters: {
   setStepState: (value: EngineStepState) => void;
   setFeedbackId: (value: string | null) => void;
@@ -1054,18 +1073,38 @@ title={
                   Ожидание проверки
                 </h2>
 
-                <div className="mt-5 flex items-center gap-4 rounded-2xl bg-white p-5">
-                  <div className="flex h-16 w-[72px] items-center justify-center rounded-full bg-black text-2xl font-bold tabular-nums text-white">
-                    {String(timerSeconds).padStart(2, "0")}
-                  </div>
+                <div className="mt-5 overflow-hidden rounded-[28px] border border-emerald-100 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+                  <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6">
+                    <div className="flex min-w-[150px] flex-col items-center justify-center rounded-[24px] bg-gradient-to-br from-black via-[#111827] to-[#1f3f2f] px-6 py-5 text-white shadow-[0_16px_35px_rgba(0,0,0,0.22)]">
+                      <span className="text-[34px] font-black leading-none tracking-tight tabular-nums sm:text-[40px]">
+                        {formatTimerSeconds(timerSeconds)}
+                      </span>
+                      <span className="mt-2 text-xs font-semibold uppercase tracking-[0.28em] text-emerald-200">
+                        Осталось
+                      </span>
+                    </div>
 
-                  <div>
-                    <p className="text-base font-medium text-black sm:text-lg">
-                      Ожидаем подтверждение от системы
-                    </p>
-                    <p className="mt-2 text-sm text-gray-600 sm:text-base">
-                      После окончания таймера вы получите текст отзыва для публикации. Не закрывайте страницу.
-                    </p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-base font-semibold text-black sm:text-lg">
+                        Ожидаем подтверждение от системы
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-gray-600 sm:text-base">
+                        После окончания таймера вы получите текст отзыва для публикации.
+                        Вы можете вернуться на эту страницу и продолжить позже
+                      </p>
+
+                      <div className="mt-5 h-3 overflow-hidden rounded-full bg-slate-200">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-lime-300 to-emerald-500 transition-all duration-700"
+                          style={{
+                            width: `${getTimerProgressPercent(
+                              getPlatformTimerSeconds(platformKey),
+                              timerSeconds,
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
