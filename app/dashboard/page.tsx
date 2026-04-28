@@ -883,7 +883,7 @@ export default function DashboardPage() {
                           onClick={(e) => e.stopPropagation()}
                           className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-slate-950 px-5 text-[15px] font-semibold text-white transition hover:bg-slate-800 active:scale-[0.98] sm:w-auto sm:text-base"
                         >
-                          Перейти на world-task.ru
+                          Перейти на task-world.ru
                         </a>
                       </div>
                     </div>
