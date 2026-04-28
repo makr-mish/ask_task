@@ -126,15 +126,6 @@ function getTaskWaitingDeadline(task: SavedTaskSession) {
   return task.expiresAt;
 }
 
-function getRandomMultiple(min: number, max: number, step: number) {
-  const steps = Math.floor((max - min) / step) + 1;
-  return min + Math.floor(Math.random() * steps) * step;
-}
-
-function formatRubles(value: number) {
-  return new Intl.NumberFormat("ru-RU").format(value);
-}
-
 export default function DashboardPage() {
   const [user, setUser] = useState<AppUser | null>(null);
   const [pageVisible, setPageVisible] = useState(false);
@@ -144,11 +135,6 @@ export default function DashboardPage() {
   const [loadingFree, setLoadingFree] = useState(false);
   const [freeLoaded, setFreeLoaded] = useState(false);
   const [reviewsExpanded, setReviewsExpanded] = useState(false);
-  const [activitiesExpanded, setActivitiesExpanded] = useState(false);
-  const [worldTaskStats] = useState(() => ({
-    price: getRandomMultiple(13900, 18500, 100),
-    free: getRandomMultiple(25, 40, 1),
-  }));
 
   const [balanceData, setBalanceData] = useState<{
     pending: number;
@@ -176,9 +162,6 @@ export default function DashboardPage() {
   const [taskTimerNow, setTaskTimerNow] = useState(() => Date.now());
 
   const [reviewsRipple, setReviewsRipple] = useState<RippleState | null>(null);
-  const [activitiesRipple, setActivitiesRipple] = useState<RippleState | null>(
-    null,
-  );
 
   const getTaskCardStyle = (value: string | number | undefined) => {
     const num = Number(value ?? 0);
@@ -328,11 +311,6 @@ export default function DashboardPage() {
     if (next && !freeLoaded) {
       void loadFreeCounts();
     }
-  };
-
-  const handleActivitiesCardClick = (event: MouseEvent<HTMLDivElement>) => {
-    createRipple(event, setActivitiesRipple);
-    setActivitiesExpanded((prev) => !prev);
   };
 
   const refreshActiveTaskSessions = (userIdText: string) => {
@@ -804,92 +782,6 @@ export default function DashboardPage() {
                   ) : (
                     <p className="text-[15px] leading-6 text-slate-500">
                       Нажмите на блок, чтобы увидеть задания по отзывам
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div
-                onClick={handleActivitiesCardClick}
-                className="relative cursor-pointer overflow-hidden rounded-[24px] border border-slate-200/80 bg-white/70 p-4 shadow-[0_10px_25px_rgba(15,23,42,0.04)] transition hover:shadow-[0_14px_30px_rgba(15,23,42,0.08)] sm:rounded-[26px] sm:p-5"
-              >
-                {activitiesRipple && (
-                  <span
-                    key={activitiesRipple.key}
-                    className="pointer-events-none absolute animate-ping rounded-full bg-slate-300/30"
-                    style={{
-                      left: activitiesRipple.x - 140,
-                      top: activitiesRipple.y - 140,
-                      width: 280,
-                      height: 280,
-                      animationDuration: "550ms",
-                    }}
-                  />
-                )}
-
-                <div className="relative z-10">
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <h3 className="max-w-[180px] text-[24px] font-bold leading-7 text-slate-900 sm:max-w-none sm:text-2xl">
-                      Выполнение активностей
-                    </h3>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActivitiesExpanded((prev) => !prev);
-                      }}
-                      className="inline-flex h-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-[14px] font-semibold text-slate-700 shadow-[0_8px_18px_rgba(15,23,42,0.05)] transition hover:-translate-y-[1px] hover:bg-slate-50 sm:h-11 sm:px-5 sm:text-sm"
-                    >
-                      {activitiesExpanded ? "Свернуть" : "Открыть"}
-                    </button>
-                  </div>
-
-                  {activitiesExpanded ? (
-                    <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
-                      <div
-                        className="relative rounded-[22px] border p-4 transition duration-300 hover:-translate-y-[4px] hover:scale-[1.01] hover:shadow-[0_16px_34px_rgba(15,23,42,0.08)] sm:rounded-[24px] sm:p-5"
-                        style={{
-                          background:
-                            "linear-gradient(90deg, rgba(187,247,208,0.18) 0%, rgba(220,252,231,0.1) 70%, rgba(255,255,255,0.97) 100%)",
-                          borderColor: "rgba(34,197,94,0.28)",
-                          boxShadow:
-                            "0 10px 24px rgba(15,23,42,0.05), inset 0 0 0 1px rgba(255,255,255,0.35), 0 0 0 1px rgba(34,197,94,0.08)",
-                        }}
-                      >
-                        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="text-[20px] font-bold text-slate-900 sm:text-[22px]">
-                            Другие активности
-                          </div>
-
-                          <div className="flex flex-col items-start gap-2 self-start sm:items-end sm:self-auto">
-                            <div className="inline-flex items-center justify-center rounded-full border border-yellow-300 bg-yellow-200 px-3 py-1 text-[12px] font-semibold text-slate-900 shadow-[0_8px_18px_rgba(234,179,8,0.16)] sm:text-[13px]">
-                              Новое
-                            </div>
-
-                            <div className="inline-flex w-fit min-w-[70px] items-center justify-center rounded-2xl border border-white/50 bg-gradient-to-br from-white/40 to-white/10 px-4 py-2 text-[15px] font-semibold tracking-tight text-slate-900 backdrop-blur-xl shadow-[0_10px_30px_rgba(15,23,42,0.15)] sm:text-base">
-                              Оплата {formatRubles(worldTaskStats.price)} руб
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mb-4 text-[16px] text-slate-700 sm:mb-3 sm:text-[17px]">
-                          Свободных заданий: {worldTaskStats.free}
-                        </div>
-
-                        <a
-                          href="https://task-world.ru"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-slate-950 px-5 text-[15px] font-semibold text-white transition hover:bg-slate-800 active:scale-[0.98] sm:w-auto sm:text-base"
-                        >
-                          Перейти на task-world.ru
-                        </a>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-[15px] leading-6 text-slate-500">
-                      Нажмите на блок, чтобы увидеть раздел активностей
                     </p>
                   )}
                 </div>
