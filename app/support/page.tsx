@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import PersonalDataConsent from "@/components/PersonalDataConsent";
 
 type TgUser = {
   USER_ID_TEXT: string;
@@ -20,6 +21,7 @@ export default function SupportPage() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [successText, setSuccessText] = useState("");
+  const [personalDataAccepted, setPersonalDataAccepted] = useState(false);
 
   useEffect(() => {
     const rawTgUser = localStorage.getItem("tg_user");
@@ -56,6 +58,11 @@ export default function SupportPage() {
 
   const handleSubmit = async () => {
     if (!user) return;
+
+    if (!personalDataAccepted) {
+      alert("Подтвердите согласие на обработку персональных данных");
+      return;
+    }
 
     const cleanSubject = subject.trim();
     const cleanMessage = message.trim();
@@ -163,10 +170,15 @@ export default function SupportPage() {
               </div>
             )}
 
+            <PersonalDataConsent
+              checked={personalDataAccepted}
+              onChange={setPersonalDataAccepted}
+            />
+
             <div className="flex flex-col gap-3 sm:flex-row">
               <button
                 onClick={handleSubmit}
-                disabled={loading}
+                disabled={loading || !personalDataAccepted}
                 className="inline-flex h-12 items-center justify-center rounded-2xl bg-slate-900 px-6 text-[15px] font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
               >
                 {loading ? "Отправляем..." : "Отправить тикет"}

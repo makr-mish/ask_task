@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import PersonalDataConsent from "@/components/PersonalDataConsent";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -10,8 +11,14 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [personalDataAccepted, setPersonalDataAccepted] = useState(false);
 
   async function handleRegister() {
+    if (!personalDataAccepted) {
+      alert("Подтвердите согласие на обработку персональных данных");
+      return;
+    }
+
     if (!login || !password) {
       alert("Введите логин и пароль");
       return;
@@ -94,9 +101,14 @@ export default function RegisterPage() {
                 className="h-12 w-full rounded-2xl border border-slate-200 bg-[#eef3fb] px-4 text-[16px] text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:shadow-[0_0_0_4px_rgba(148,163,184,0.14)]"
               />
 
+              <PersonalDataConsent
+                checked={personalDataAccepted}
+                onChange={setPersonalDataAccepted}
+              />
+
               <button
                 onClick={handleRegister}
-                disabled={loading}
+                disabled={loading || !personalDataAccepted}
                 className="inline-flex h-12 w-full items-center justify-center rounded-2xl bg-gradient-to-b from-slate-800 to-black px-6 text-[16px] font-semibold text-white shadow-[0_14px_28px_rgba(15,23,42,0.22)] transition hover:-translate-y-[1px] hover:from-slate-700 hover:to-slate-900 active:scale-[0.98] disabled:opacity-50"
               >
                 {loading ? "Создание..." : "Зарегистрироваться"}

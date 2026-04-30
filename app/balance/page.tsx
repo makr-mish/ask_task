@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import PersonalDataConsent from "@/components/PersonalDataConsent";
 
 type TgUser = {
   USER_ID_TEXT: string;
@@ -75,6 +76,7 @@ export default function BalancePage() {
 
   const [errorText, setErrorText] = useState("");
   const [requestNumber, setRequestNumber] = useState<string | number | null>(null);
+  const [detailsPersonalDataAccepted, setDetailsPersonalDataAccepted] = useState(false);
 
   useEffect(() => {
     const rawTgUser = localStorage.getItem("tg_user");
@@ -187,6 +189,11 @@ export default function BalancePage() {
 
   async function handleSaveDetails() {
     if (!user || !canSaveDetails) return;
+
+    if (!detailsPersonalDataAccepted) {
+      setErrorText("Подтвердите согласие на обработку персональных данных");
+      return;
+    }
 
     try {
       setLoading(true);
@@ -451,6 +458,11 @@ export default function BalancePage() {
                 </div>
               </div>
 
+              <PersonalDataConsent
+                checked={detailsPersonalDataAccepted}
+                onChange={setDetailsPersonalDataAccepted}
+              />
+
               <div className="flex flex-col gap-3 sm:flex-row">
                 <button
                   type="button"
@@ -469,7 +481,7 @@ export default function BalancePage() {
                 <button
                   type="button"
                   onClick={handleSaveDetails}
-                  disabled={!canSaveDetails || loading}
+                  disabled={!canSaveDetails || loading || !detailsPersonalDataAccepted}
                   className="w-full rounded-2xl bg-[#111827] px-4 py-3 text-base font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:bg-[#9ca3af]"
                 >
                   Сохранить реквизиты

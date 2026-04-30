@@ -14,7 +14,7 @@ export type PlatformStepConfig = {
   controlQuestionIds?: string[];
 };
 
-export const DEFAULT_PLATFORM_TIMER_SECONDS = 30 * 60;
+export const DEFAULT_PLATFORM_TIMER_SECONDS = 2 * 60;
 
 export const PLATFORM_STEP_CONFIG: Record<string, PlatformStepConfig> = {
   yandex: {
